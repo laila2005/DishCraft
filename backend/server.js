@@ -1,12 +1,19 @@
 const express = require("express");
 const dotenv = require("dotenv");
 const mongoose = require("mongoose");
-const Ingredient = require("./models/Ingredient"); // Import the Ingredient model
+const cors = require("cors"); // Import the cors package
+const Ingredient = require("./models/Ingredient");
+const RecipeComponent = require("./models/RecipeComponent"); // Make sure this is imported if you plan to use it later
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// --- CORS Configuration ---
+// Allow requests from your frontend origin (e.g., http://localhost:3000 )
+// For production, replace '*' with your actual frontend domain (e.g., 'https://your-frontend-domain.com' )
+app.use(cors()); 
 
 // Middleware to parse JSON bodies
 app.use(express.json());
@@ -18,7 +25,6 @@ const connectDB = async () => {
     console.log("MongoDB Connected...");
   } catch (err) {
     console.error("Error connecting to MongoDB:", err.message);
-    // Exit process with failure
     process.exit(1);
   }
 };
@@ -41,7 +47,7 @@ app.get("/", (req, res) => {
 // GET all ingredients
 app.get("/api/ingredients", async (req, res) => {
   try {
-    const ingredients = await Ingredient.find().sort({ name: 1 }); // Sort by name
+    const ingredients = await Ingredient.find().sort({ name: 1 });
     res.json(ingredients);
   } catch (err) {
     console.error(err.message);
