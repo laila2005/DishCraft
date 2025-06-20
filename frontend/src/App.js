@@ -17,7 +17,7 @@ function App() {
   const [selectedProtein, setSelectedProtein] = useState('');
 
   // IMPORTANT: Replace with your actual Render backend URL
-  const BACKEND_URL = 'YOUR_RENDER_BACKEND_URL'; 
+  const BACKEND_URL = 'https://dishcraft-backend-3tk2.onrender.com'; 
 
   // Fetch ingredients on component mount
   useEffect(() => {
