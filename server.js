@@ -1,6 +1,7 @@
 const express = require("express");
 const dotenv = require("dotenv");
 const mongoose = require("mongoose");
+const Ingredient = require("./models/Ingredient"); // Import the Ingredient model
 
 dotenv.config();
 
@@ -16,7 +17,7 @@ const connectDB = async () => {
     await mongoose.connect(process.env.MONGO_URI);
     console.log("MongoDB Connected...");
   } catch (err) {
-    console.error(err.message);
+    console.error("Error connecting to MongoDB:", err.message);
     // Exit process with failure
     process.exit(1);
   }
@@ -30,9 +31,22 @@ app.use((err, req, res, next) => {
   res.status(500).send("Something broke!");
 });
 
-// Define a root endpoint
+// --- API Endpoints ---
+
+// Root endpoint
 app.get("/", (req, res) => {
   res.send("Welcome to DishCraft API!");
+});
+
+// GET all ingredients
+app.get("/api/ingredients", async (req, res) => {
+  try {
+    const ingredients = await Ingredient.find().sort({ name: 1 }); // Sort by name
+    res.json(ingredients);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server Error fetching ingredients");
+  }
 });
 
 // Start the server
