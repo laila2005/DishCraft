@@ -7,14 +7,14 @@ const RecipeComponentSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ["protein", "vegetable", "carb", "sauce_base", "cooking_method", "instruction_template", "flavor_profile"],
+    enum: ["protein", "vegetable", "carb", "sauce_base", "cooking_method", "instruction_template", "flavor_profile", "spice", "dairy", "fruit", "other"], // Expanded enum
     required: true,
   },
   tags: [
     {
       type: String,
     },
-  ], // e.g., "vegetarian", "vegan", "gluten-free", "italian", "asian"
+  ], // e.g., "vegetarian", "vegan", "gluten-free", "italian", "asian", "quick", "healthy"
   description: {
     type: String,
   },
@@ -23,6 +23,25 @@ const RecipeComponentSchema = new mongoose.Schema({
   },
   unit: {
     type: String,
+  },
+  // New fields for more detailed recipe components
+  cuisine_tags: [
+    {
+      type: String,
+    },
+  ], // e.g., "italian", "mexican", "asian"
+  dietary_tags: [
+    {
+      type: String,
+    },
+  ], // e.g., "vegetarian", "vegan", "gluten-free", "dairy-free"
+  cooking_time_range: {
+    min: Number,
+    max: Number,
+  }, // in minutes
+  difficulty: {
+    type: String,
+    enum: ["easy", "medium", "hard"],
   },
   // For instruction_template type
   steps: [
