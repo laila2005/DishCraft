@@ -181,6 +181,31 @@ app.post("/api/meal-plans/:planId/add-recipe", async (req, res) => {
   }
 });
 
+// DELETE a meal plan
+app.delete("/api/meal-plans/:planId", async (req, res) => {
+  try {
+    const { planId } = req.params;
+    
+    const mealPlan = await MealPlan.findById(planId);
+    if (!mealPlan) {
+      return res.status(404).json({ message: "Meal plan not found." });
+    }
+
+    // Delete all associated meals
+    if (mealPlan.meals && mealPlan.meals.length > 0) {
+      await Meal.deleteMany({ _id: { $in: mealPlan.meals } });
+    }
+
+    // Delete the meal plan
+    await MealPlan.findByIdAndDelete(planId);
+
+    res.status(200).json({ message: "Meal plan deleted successfully!" });
+  } catch (err) {
+    console.error("Error deleting meal plan:", err.message);
+    res.status(500).send("Server Error deleting meal plan");
+  }
+});
+
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
