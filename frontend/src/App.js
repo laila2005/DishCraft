@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import './App.css';
 
@@ -16,7 +16,7 @@ function App() {
   const [selectedCuisine, setSelectedCuisine] = useState('');
   const [selectedProtein, setSelectedProtein] = useState('');
 
-  // NEW: State for ingredient-based recipe generation
+  // State for ingredient-based recipe generation
   const [recipeMode, setRecipeMode] = useState('random'); // 'random' or 'ingredients'
   const [userIngredients, setUserIngredients] = useState([]);
   const [ingredientInput, setIngredientInput] = useState('');
@@ -34,44 +34,8 @@ function App() {
   // IMPORTANT: Your actual Render backend URL
   const BACKEND_URL = 'https://dishcraft-backend-3tk2.onrender.com'; 
 
-  // Fetch ingredients on component mount
-  useEffect(() => {
-    const fetchIngredients = async () => {
-      try {
-        const response = await axios.get(`${BACKEND_URL}/api/ingredients`);
-        setIngredients(response.data);
-        setLoadingIngredients(false);
-      } catch (err) {
-        console.error('Error fetching ingredients:', err);
-        setErrorIngredients('Failed to load ingredients. Please check your backend URL and CORS settings.');
-        setLoadingIngredients(false);
-      }
-    };
-    fetchIngredients();
-  }, []);
-
-  // Fetch meal plans on component mount
-  useEffect(() => {
-    fetchMealPlans();
-  }, []);
-
-  // NEW: Filter ingredients based on user input
-  useEffect(() => {
-    if (ingredientInput.trim() && ingredients.length > 0) {
-      const filtered = ingredients.filter(ingredient =>
-        ingredient.name.toLowerCase().includes(ingredientInput.toLowerCase()) &&
-        !userIngredients.some(userIng => userIng._id === ingredient._id)
-      );
-      setFilteredIngredients(filtered.slice(0, 8)); // Show max 8 suggestions
-      setShowIngredientSuggestions(true);
-    } else {
-      setFilteredIngredients([]);
-      setShowIngredientSuggestions(false);
-    }
-  }, [ingredientInput, ingredients, userIngredients]);
-
-  // Function to fetch meal plans
-  const fetchMealPlans = async () => {
+  // Function to fetch meal plans (wrapped in useCallback to fix ESLint warnings )
+  const fetchMealPlans = useCallback(async () => {
     setLoadingMealPlans(true);
     setErrorMealPlans(null);
     try {
@@ -86,21 +50,57 @@ function App() {
       setErrorMealPlans('Failed to load meal plans.');
       setLoadingMealPlans(false);
     }
-  };
+  }, [BACKEND_URL, selectedMealPlanId]);
 
-  // NEW: Add ingredient to user's list
+  // Fetch ingredients on component mount
+  useEffect(() => {
+    const fetchIngredients = async () => {
+      try {
+        const response = await axios.get(`${BACKEND_URL}/api/ingredients`);
+        setIngredients(response.data);
+        setLoadingIngredients(false);
+      } catch (err) {
+        console.error('Error fetching ingredients:', err);
+        setErrorIngredients('Failed to load ingredients. Please check your backend URL and CORS settings.');
+        setLoadingIngredients(false);
+      }
+    };
+    fetchIngredients();
+  }, [BACKEND_URL]);
+
+  // Fetch meal plans on component mount
+  useEffect(() => {
+    fetchMealPlans();
+  }, [fetchMealPlans]);
+
+  // Filter ingredients based on user input
+  useEffect(() => {
+    if (ingredientInput.trim() && ingredients.length > 0) {
+      const filtered = ingredients.filter(ingredient =>
+        ingredient.name.toLowerCase().includes(ingredientInput.toLowerCase()) &&
+        !userIngredients.some(userIng => userIng._id === ingredient._id)
+      );
+      setFilteredIngredients(filtered.slice(0, 8)); // Show max 8 suggestions
+      setShowIngredientSuggestions(true);
+    } else {
+      setFilteredIngredients([]);
+      setShowIngredientSuggestions(false);
+    }
+  }, [ingredientInput, ingredients, userIngredients]);
+
+  // Add ingredient to user's list
   const addIngredient = (ingredient) => {
     setUserIngredients([...userIngredients, ingredient]);
     setIngredientInput('');
     setShowIngredientSuggestions(false);
   };
 
-  // NEW: Remove ingredient from user's list
+  // Remove ingredient from user's list
   const removeIngredient = (ingredientId) => {
     setUserIngredients(userIngredients.filter(ing => ing._id !== ingredientId));
   };
 
-  // NEW: Add ingredient by typing (if not in database)
+  // Add ingredient by typing (if not in database)
   const addCustomIngredient = () => {
     if (ingredientInput.trim() && !userIngredients.some(ing => ing.name.toLowerCase() === ingredientInput.toLowerCase())) {
       const customIngredient = {
@@ -228,7 +228,7 @@ function App() {
 
         <hr />
 
-        {/* NEW: Recipe Generation Mode Selection */}
+        {/* Recipe Generation Mode Selection */}
         <section className="recipe-mode-section">
           <h2>🎯 Choose Your Recipe Generation Mode</h2>
           <div className="mode-selector">
@@ -247,7 +247,7 @@ function App() {
           </div>
         </section>
 
-        {/* NEW: Ingredient Input Section (only show when ingredients mode is selected) */}
+        {/* Ingredient Input Section (only show when ingredients mode is selected) */}
         {recipeMode === 'ingredients' && (
           <section className="ingredient-input-section">
             <h2>🥘 What's in Your Kitchen?</h2>
@@ -382,7 +382,7 @@ function App() {
               <h3>🍽️ {generatedRecipe.title}</h3>
               <p className="recipe-description">{generatedRecipe.description}</p>
               
-              {/* NEW: Show ingredient match info for ingredient-based recipes */}
+              {/* Show ingredient match info for ingredient-based recipes */}
               {recipeMode === 'ingredients' && generatedRecipe.ingredientMatch && (
                 <div className="ingredient-match-info">
                   <p className="match-score">
