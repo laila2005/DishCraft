@@ -10,7 +10,7 @@ const mealSchema = new mongoose.Schema({
   
   // Full recipe details
   recipeDetails: {
-    type: mongoose.Schema.Mixed,
+    type: mongoose.Schema.Types.Mixed,
     required: true
   },
   
