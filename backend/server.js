@@ -2,10 +2,18 @@ const express = require("express");
 const dotenv = require("dotenv");
 const mongoose = require("mongoose");
 const cors = require("cors");
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
+
+// Import models
 const Ingredient = require("./models/Ingredient");
 const RecipeComponent = require("./models/RecipeComponent");
 const Meal = require("./models/Meal");
 const MealPlan = require("./models/MealPlan");
+const User = require("./models/User");
+
+// Import middleware
+const { authenticateToken, requireChef, requireAdmin, optionalAuth } = require("./middleware/authMiddleware");
 
 dotenv.config();
 
@@ -34,6 +42,15 @@ app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).send("Something broke!");
 });
+
+// Helper function to generate JWT token
+const generateToken = (userId) => {
+  return jwt.sign(
+    { userId },
+    process.env.JWT_SECRET,
+    { expiresIn: process.env.JWT_EXPIRE || '7d' }
+  );
+};
 
 // Helper function to generate cooking instructions
 const generateInstructions = (protein, vegetable, carb, sauce, cookingMethod) => {
@@ -251,14 +268,192 @@ const findBestRecipeMatch = async (userIngredients, preferences) => {
   }
 };
 
+// --- AUTHENTICATION ROUTES ---
+
+// POST /api/auth/register - User registration
+app.post("/api/auth/register", async (req, res) => {
+  try {
+    const { name, email, password, role = "user" } = req.body;
+
+    // Validation
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide name, email, and password"
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters long"
+      });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findByEmail(email);
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: "User with this email already exists"
+      });
+    }
+
+    // Create new user
+    const user = new User({
+      name,
+      email,
+      password,
+      role: role === "chef" ? "chef" : "user",
+      isChef: role === "chef"
+    });
+
+    await user.save();
+
+    // Generate token
+    const token = generateToken(user._id);
+
+    // Update last login
+    user.lastLogin = new Date();
+    await user.save();
+
+    res.status(201).json({
+      success: true,
+      message: "User registered successfully",
+      token,
+      user: user.getPublicProfile()
+    });
+
+  } catch (error) {
+    console.error("Registration error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error during registration",
+      error: error.message
+    });
+  }
+});
+
+// POST /api/auth/login - User login
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Validation
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide email and password"
+      });
+    }
+
+    // Find user and include password for comparison
+    const user = await User.findByEmail(email).select('+password');
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password"
+      });
+    }
+
+    // Check if account is active
+    if (!user.isActive) {
+      return res.status(401).json({
+        success: false,
+        message: "Account is deactivated. Please contact support."
+      });
+    }
+
+    // Check password
+    const isPasswordValid = await user.comparePassword(password);
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password"
+      });
+    }
+
+    // Generate token
+    const token = generateToken(user._id);
+
+    // Update last login
+    user.lastLogin = new Date();
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Login successful",
+      token,
+      user: user.getPublicProfile()
+    });
+
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error during login",
+      error: error.message
+    });
+  }
+});
+
+// GET /api/auth/profile - Get user profile (protected)
+app.get("/api/auth/profile", authenticateToken, async (req, res) => {
+  try {
+    // User is already attached to req by middleware
+    const user = await User.findById(req.user._id).populate('mealPlans');
+    
+    res.json({
+      success: true,
+      user: user.getPublicProfile()
+    });
+  } catch (error) {
+    console.error("Get profile error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error fetching profile"
+    });
+  }
+});
+
+// PUT /api/auth/profile - Update user profile (protected)
+app.put("/api/auth/profile", authenticateToken, async (req, res) => {
+  try {
+    const { name, bio, dietaryPreferences, cuisinePreferences, profileImage } = req.body;
+    
+    const user = await User.findById(req.user._id);
+    
+    // Update fields if provided
+    if (name) user.name = name;
+    if (bio !== undefined) user.bio = bio;
+    if (dietaryPreferences) user.dietaryPreferences = dietaryPreferences;
+    if (cuisinePreferences) user.cuisinePreferences = cuisinePreferences;
+    if (profileImage !== undefined) user.profileImage = profileImage;
+    
+    await user.save();
+    
+    res.json({
+      success: true,
+      message: "Profile updated successfully",
+      user: user.getPublicProfile()
+    });
+  } catch (error) {
+    console.error("Update profile error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error updating profile"
+    });
+  }
+});
+
 // --- API ENDPOINTS ---
 
 // Root endpoint
 app.get("/", (req, res) => {
-  res.send("Welcome to DishCraft API - Enhanced with Smart Ingredient Matching!");
+  res.send("Welcome to DishCraft API - Enhanced with Authentication!");
 });
 
-// GET all ingredients
+// GET all ingredients (public)
 app.get("/api/ingredients", async (req, res) => {
   try {
     const ingredients = await Ingredient.find().sort({ name: 1 });
@@ -269,13 +464,19 @@ app.get("/api/ingredients", async (req, res) => {
   }
 });
 
-// POST generate recipe - ENHANCED WITH SMART MATCHING
-app.post("/api/generate-recipe", async (req, res) => {
+// POST generate recipe (public, but enhanced for authenticated users)
+app.post("/api/generate-recipe", optionalAuth, async (req, res) => {
   try {
     const { preferences } = req.body;
     const { mode, userIngredients, dietary, cuisine, protein } = preferences || {};
 
-    console.log('Recipe generation request:', { mode, userIngredients: userIngredients?.length, dietary, cuisine });
+    console.log('Recipe generation request:', { 
+      mode, 
+      userIngredients: userIngredients?.length, 
+      dietary, 
+      cuisine,
+      userId: req.user?._id 
+    });
 
     let selectedComponents;
     let matchInfo = null;
@@ -353,13 +554,19 @@ app.post("/api/generate-recipe", async (req, res) => {
           missingIngredients: matchInfo.missingIngredients,
           matchScore: Math.round((matchInfo.matchedCount / matchInfo.totalRequired) * 100)
         }
+      }),
+      // Add user info if authenticated
+      ...(req.user && {
+        generatedFor: req.user._id,
+        generatedAt: new Date()
       })
     };
 
     console.log('Generated recipe:', { 
       title, 
       mode, 
-      matchInfo: matchInfo ? `${matchInfo.matchedCount}/${matchInfo.totalRequired}` : 'N/A' 
+      matchInfo: matchInfo ? `${matchInfo.matchedCount}/${matchInfo.totalRequired}` : 'N/A',
+      userId: req.user?._id
     });
 
     res.json(generatedRecipe);
@@ -370,15 +577,28 @@ app.post("/api/generate-recipe", async (req, res) => {
   }
 });
 
-// MEAL PLAN ENDPOINTS (unchanged)
-app.post("/api/meal-plans", async (req, res) => {
+// --- PROTECTED MEAL PLAN ENDPOINTS ---
+
+// POST create a new meal plan (protected)
+app.post("/api/meal-plans", authenticateToken, async (req, res) => {
   try {
     const { name } = req.body;
     if (!name) {
       return res.status(400).json({ message: "Meal plan name is required." });
     }
-    const newMealPlan = new MealPlan({ name });
+
+    // Create meal plan for authenticated user
+    const newMealPlan = new MealPlan({ 
+      name,
+      userId: req.user._id // Link to user
+    });
     await newMealPlan.save();
+
+    // Add meal plan to user's meal plans
+    await User.findByIdAndUpdate(req.user._id, {
+      $push: { mealPlans: newMealPlan._id }
+    });
+
     res.status(201).json(newMealPlan);
   } catch (err) {
     console.error("Error creating meal plan:", err.message);
@@ -386,9 +606,11 @@ app.post("/api/meal-plans", async (req, res) => {
   }
 });
 
-app.get("/api/meal-plans", async (req, res) => {
+// GET all meal plans for authenticated user (protected)
+app.get("/api/meal-plans", authenticateToken, async (req, res) => {
   try {
-    const mealPlans = await MealPlan.find().populate("meals");
+    // Only get meal plans for the authenticated user
+    const mealPlans = await MealPlan.find({ userId: req.user._id }).populate("meals");
     res.json(mealPlans);
   } catch (err) {
     console.error("Error fetching meal plans:", err.message);
@@ -396,7 +618,8 @@ app.get("/api/meal-plans", async (req, res) => {
   }
 });
 
-app.post("/api/meal-plans/:planId/add-recipe", async (req, res) => {
+// POST add a generated recipe to a meal plan (protected)
+app.post("/api/meal-plans/:planId/add-recipe", authenticateToken, async (req, res) => {
   try {
     const { planId } = req.params;
     const { recipeDetails, mealType } = req.body;
@@ -405,15 +628,17 @@ app.post("/api/meal-plans/:planId/add-recipe", async (req, res) => {
       return res.status(400).json({ message: "Recipe details are required." });
     }
 
-    const mealPlan = await MealPlan.findById(planId);
+    // Verify meal plan belongs to user
+    const mealPlan = await MealPlan.findOne({ _id: planId, userId: req.user._id });
     if (!mealPlan) {
-      return res.status(404).json({ message: "Meal plan not found." });
+      return res.status(404).json({ message: "Meal plan not found or access denied." });
     }
 
     const newMeal = new Meal({
       recipeTitle: recipeDetails.title,
       recipeDetails: recipeDetails,
       mealType: mealType || "dinner",
+      userId: req.user._id // Link meal to user
     });
     await newMeal.save();
 
@@ -427,19 +652,28 @@ app.post("/api/meal-plans/:planId/add-recipe", async (req, res) => {
   }
 });
 
-app.delete("/api/meal-plans/:planId", async (req, res) => {
+// DELETE a meal plan (protected)
+app.delete("/api/meal-plans/:planId", authenticateToken, async (req, res) => {
   try {
     const { planId } = req.params;
     
-    const mealPlan = await MealPlan.findById(planId);
+    // Verify meal plan belongs to user
+    const mealPlan = await MealPlan.findOne({ _id: planId, userId: req.user._id });
     if (!mealPlan) {
-      return res.status(404).json({ message: "Meal plan not found." });
+      return res.status(404).json({ message: "Meal plan not found or access denied." });
     }
 
+    // Delete all associated meals
     if (mealPlan.meals && mealPlan.meals.length > 0) {
       await Meal.deleteMany({ _id: { $in: mealPlan.meals } });
     }
 
+    // Remove from user's meal plans
+    await User.findByIdAndUpdate(req.user._id, {
+      $pull: { mealPlans: planId }
+    });
+
+    // Delete the meal plan
     await MealPlan.findByIdAndDelete(planId);
 
     res.status(200).json({ message: "Meal plan deleted successfully!" });
@@ -452,5 +686,5 @@ app.delete("/api/meal-plans/:planId", async (req, res) => {
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log("🧠 Smart DishCraft API with Ingredient Matching is ready!");
+  console.log("🔐 DishCraft API with Authentication is ready!");
 });
