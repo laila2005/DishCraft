@@ -16,7 +16,14 @@ function App() {
   const [selectedCuisine, setSelectedCuisine] = useState('');
   const [selectedProtein, setSelectedProtein] = useState('');
 
-  // NEW: State for Meal Planning
+  // NEW: State for ingredient-based recipe generation
+  const [recipeMode, setRecipeMode] = useState('random'); // 'random' or 'ingredients'
+  const [userIngredients, setUserIngredients] = useState([]);
+  const [ingredientInput, setIngredientInput] = useState('');
+  const [filteredIngredients, setFilteredIngredients] = useState([]);
+  const [showIngredientSuggestions, setShowIngredientSuggestions] = useState(false);
+
+  // State for Meal Planning
   const [mealPlans, setMealPlans] = useState([]);
   const [loadingMealPlans, setLoadingMealPlans] = useState(false);
   const [errorMealPlans, setErrorMealPlans] = useState(null);
@@ -43,12 +50,27 @@ function App() {
     fetchIngredients();
   }, []);
 
-  // NEW: Fetch meal plans on component mount
+  // Fetch meal plans on component mount
   useEffect(() => {
     fetchMealPlans();
   }, []);
 
-  // NEW: Function to fetch meal plans
+  // NEW: Filter ingredients based on user input
+  useEffect(() => {
+    if (ingredientInput.trim() && ingredients.length > 0) {
+      const filtered = ingredients.filter(ingredient =>
+        ingredient.name.toLowerCase().includes(ingredientInput.toLowerCase()) &&
+        !userIngredients.some(userIng => userIng._id === ingredient._id)
+      );
+      setFilteredIngredients(filtered.slice(0, 8)); // Show max 8 suggestions
+      setShowIngredientSuggestions(true);
+    } else {
+      setFilteredIngredients([]);
+      setShowIngredientSuggestions(false);
+    }
+  }, [ingredientInput, ingredients, userIngredients]);
+
+  // Function to fetch meal plans
   const fetchMealPlans = async () => {
     setLoadingMealPlans(true);
     setErrorMealPlans(null);
@@ -56,7 +78,7 @@ function App() {
       const response = await axios.get(`${BACKEND_URL}/api/meal-plans`);
       setMealPlans(response.data);
       if (response.data.length > 0 && !selectedMealPlanId) {
-        setSelectedMealPlanId(response.data[0]._id); // Select the first plan by default
+        setSelectedMealPlanId(response.data[0]._id);
       }
       setLoadingMealPlans(false);
     } catch (err) {
@@ -66,16 +88,46 @@ function App() {
     }
   };
 
-  // Function to generate a recipe based on preferences
+  // NEW: Add ingredient to user's list
+  const addIngredient = (ingredient) => {
+    setUserIngredients([...userIngredients, ingredient]);
+    setIngredientInput('');
+    setShowIngredientSuggestions(false);
+  };
+
+  // NEW: Remove ingredient from user's list
+  const removeIngredient = (ingredientId) => {
+    setUserIngredients(userIngredients.filter(ing => ing._id !== ingredientId));
+  };
+
+  // NEW: Add ingredient by typing (if not in database)
+  const addCustomIngredient = () => {
+    if (ingredientInput.trim() && !userIngredients.some(ing => ing.name.toLowerCase() === ingredientInput.toLowerCase())) {
+      const customIngredient = {
+        _id: `custom_${Date.now()}`,
+        name: ingredientInput.trim(),
+        category: 'custom'
+      };
+      setUserIngredients([...userIngredients, customIngredient]);
+      setIngredientInput('');
+      setShowIngredientSuggestions(false);
+    }
+  };
+
+  // Enhanced function to generate a recipe based on mode and preferences
   const generateRecipe = async () => {
     setLoadingRecipe(true);
     setErrorRecipe(null);
     setGeneratedRecipe(null);
+
     const preferences = {
       dietary: selectedDietary,
       cuisine: selectedCuisine,
       protein: selectedProtein,
+      mode: recipeMode,
+      userIngredients: recipeMode === 'ingredients' ? userIngredients.map(ing => ing.name) : []
     };
+
     try {
       const response = await axios.post(`${BACKEND_URL}/api/generate-recipe`, { preferences });
       setGeneratedRecipe(response.data);
@@ -87,7 +139,7 @@ function App() {
     }
   };
 
-  // NEW: Function to create a new meal plan
+  // Function to create a new meal plan
   const createMealPlan = async () => {
     if (!newMealPlanName.trim()) {
       alert('Please enter a name for the meal plan.');
@@ -96,8 +148,8 @@ function App() {
     try {
       const response = await axios.post(`${BACKEND_URL}/api/meal-plans`, { name: newMealPlanName });
       setMealPlans([...mealPlans, response.data]);
-      setNewMealPlanName(''); // Clear input
-      setSelectedMealPlanId(response.data._id); // Select the new plan
+      setNewMealPlanName('');
+      setSelectedMealPlanId(response.data._id);
       alert('Meal plan created successfully!');
     } catch (err) {
       console.error('Error creating meal plan:', err);
@@ -105,7 +157,7 @@ function App() {
     }
   };
 
-  // NEW: Function to add generated recipe to selected meal plan
+  // Function to add generated recipe to selected meal plan
   const addRecipeToPlan = async () => {
     if (!generatedRecipe) {
       alert('Please generate a recipe first.');
@@ -121,14 +173,14 @@ function App() {
         mealType: selectedMealType
       });
       alert('Recipe added to meal plan!');
-      fetchMealPlans(); // Refresh meal plans to show updated content
+      fetchMealPlans();
     } catch (err) {
       console.error('Error adding recipe to meal plan:', err);
       alert('Failed to add recipe to meal plan.');
     }
   };
 
-  // NEW: Function to delete a meal plan
+  // Function to delete a meal plan
   const deleteMealPlan = async (planId) => {
     if (window.confirm('Are you sure you want to delete this meal plan?')) {
       try {
@@ -164,18 +216,104 @@ function App() {
             <p>No ingredients found. Please seed your database.</p>
           ) : (
             <ul className="ingredient-list">
-              {ingredients.map((ingredient) => (
+              {ingredients.slice(0, 12).map((ingredient) => (
                 <li key={ingredient._id}>{ingredient.name}</li>
               ))}
+              {ingredients.length > 12 && (
+                <li className="ingredient-more">...and {ingredients.length - 12} more</li>
+              )}
             </ul>
           )}
         </section>
 
         <hr />
 
+        {/* NEW: Recipe Generation Mode Selection */}
+        <section className="recipe-mode-section">
+          <h2>🎯 Choose Your Recipe Generation Mode</h2>
+          <div className="mode-selector">
+            <button 
+              className={`mode-btn ${recipeMode === 'random' ? 'active' : ''}`}
+              onClick={() => setRecipeMode('random')}
+            >
+              🎲 Random Recipe
+            </button>
+            <button 
+              className={`mode-btn ${recipeMode === 'ingredients' ? 'active' : ''}`}
+              onClick={() => setRecipeMode('ingredients')}
+            >
+              🧑‍🍳 Use My Ingredients
+            </button>
+          </div>
+        </section>
+
+        {/* NEW: Ingredient Input Section (only show when ingredients mode is selected) */}
+        {recipeMode === 'ingredients' && (
+          <section className="ingredient-input-section">
+            <h2>🥘 What's in Your Kitchen?</h2>
+            <p className="section-description">Tell us what ingredients you have, and we'll create a perfect recipe for you!</p>
+            
+            <div className="ingredient-input-container">
+              <div className="input-wrapper">
+                <input
+                  type="text"
+                  value={ingredientInput}
+                  onChange={(e) => setIngredientInput(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && addCustomIngredient()}
+                  placeholder="Type an ingredient (e.g., chicken, tomatoes, rice)..."
+                  className="ingredient-input"
+                />
+                <button onClick={addCustomIngredient} className="add-ingredient-btn">
+                  ➕ Add
+                </button>
+              </div>
+
+              {/* Ingredient Suggestions */}
+              {showIngredientSuggestions && filteredIngredients.length > 0 && (
+                <div className="ingredient-suggestions">
+                  {filteredIngredients.map(ingredient => (
+                    <button
+                      key={ingredient._id}
+                      onClick={() => addIngredient(ingredient)}
+                      className="suggestion-btn"
+                    >
+                      {ingredient.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* User's Selected Ingredients */}
+            {userIngredients.length > 0 && (
+              <div className="selected-ingredients">
+                <h3>🛒 Your Ingredients ({userIngredients.length})</h3>
+                <div className="ingredient-tags">
+                  {userIngredients.map(ingredient => (
+                    <span key={ingredient._id} className="ingredient-tag">
+                      {ingredient.name}
+                      <button 
+                        onClick={() => removeIngredient(ingredient._id)}
+                        className="remove-ingredient"
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                {userIngredients.length < 3 && (
+                  <p className="ingredient-tip">💡 Add at least 3 ingredients for better recipe suggestions!</p>
+                )}
+              </div>
+            )}
+          </section>
+        )}
+
         {/* Recipe Generation Section */}
         <section className="recipe-generation-section">
           <h2>🎲 Generate a New Recipe</h2>
+          
+          {/* Show preferences only in random mode or as additional filters */}
           <div className="preferences-input">
             <div className="input-group">
               <label htmlFor="dietary-select">Dietary Preference:</label>
@@ -206,24 +344,35 @@ function App() {
               </select>
             </div>
 
-            <div className="input-group">
-              <label htmlFor="protein-select">Main Protein:</label>
-              <select
-                id="protein-select"
-                value={selectedProtein}
-                onChange={(e) => setSelectedProtein(e.target.value)}
-              >
-                <option value="">Any</option>
-                {ingredients.filter(ing => ing.category === 'protein').map(ing => (
-                  <option key={ing._id} value={ing.name.toLowerCase()}>{ing.name}</option>
-                ))}
-              </select>
-            </div>
+            {recipeMode === 'random' && (
+              <div className="input-group">
+                <label htmlFor="protein-select">Main Protein:</label>
+                <select
+                  id="protein-select"
+                  value={selectedProtein}
+                  onChange={(e) => setSelectedProtein(e.target.value)}
+                >
+                  <option value="">Any</option>
+                  {ingredients.filter(ing => ing.category === 'protein').map(ing => (
+                    <option key={ing._id} value={ing.name.toLowerCase()}>{ing.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
-          <button onClick={generateRecipe} disabled={loadingRecipe} className="generate-btn">
-            {loadingRecipe ? '🔄 Generating...' : '✨ Generate Recipe'}
+          <button 
+            onClick={generateRecipe} 
+            disabled={loadingRecipe || (recipeMode === 'ingredients' && userIngredients.length === 0)}
+            className="generate-btn"
+          >
+            {loadingRecipe ? '🔄 Generating...' : 
+             recipeMode === 'ingredients' ? '🧑‍🍳 Create Recipe from My Ingredients' : '✨ Generate Random Recipe'}
           </button>
+
+          {recipeMode === 'ingredients' && userIngredients.length === 0 && (
+            <p className="warning-message">⚠️ Please add some ingredients first to generate a recipe!</p>
+          )}
 
           {loadingRecipe && <p className="loading-message">🍳 Generating your delicious recipe...</p>}
           {errorRecipe && <p className="error-message">❌ Error: {errorRecipe}</p>}
@@ -233,10 +382,25 @@ function App() {
               <h3>🍽️ {generatedRecipe.title}</h3>
               <p className="recipe-description">{generatedRecipe.description}</p>
               
+              {/* NEW: Show ingredient match info for ingredient-based recipes */}
+              {recipeMode === 'ingredients' && generatedRecipe.ingredientMatch && (
+                <div className="ingredient-match-info">
+                  <p className="match-score">
+                    🎯 <strong>Ingredient Match:</strong> {generatedRecipe.ingredientMatch.matchedCount} of {generatedRecipe.ingredientMatch.totalRequired} required ingredients
+                  </p>
+                  {generatedRecipe.ingredientMatch.missingIngredients && generatedRecipe.ingredientMatch.missingIngredients.length > 0 && (
+                    <p className="missing-ingredients">
+                      🛒 <strong>You might need:</strong> {generatedRecipe.ingredientMatch.missingIngredients.join(', ')}
+                    </p>
+                  )}
+                </div>
+              )}
+              
               <div className="recipe-details">
                 <div className="recipe-info">
                   <span className="info-item">⏱️ <strong>Time:</strong> {generatedRecipe.cookingTime}</span>
                   <span className="info-item">📊 <strong>Difficulty:</strong> {generatedRecipe.difficulty}</span>
+                  <span className="info-item">👥 <strong>Serves:</strong> {generatedRecipe.servings || 4}</span>
                 </div>
 
                 <h4>🥘 Components:</h4>
@@ -256,7 +420,7 @@ function App() {
                 </ol>
               </div>
 
-              {/* NEW: Add to Meal Plan Section */}
+              {/* Add to Meal Plan Section */}
               <div className="add-to-plan-section">
                 <h4>📅 Add to Meal Plan</h4>
                 <div className="meal-plan-controls">
@@ -301,7 +465,7 @@ function App() {
 
         <hr />
 
-        {/* NEW: Meal Planning Section */}
+        {/* Meal Planning Section */}
         <section className="meal-planning-section">
           <h2>📅 My Meal Plans</h2>
           
