@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import AuthForms from './components/AuthForms';
+import ChefDashboard from './components/ChefDashboard';
 import './App.css';
 
 // Main App Component (wrapped with authentication)
@@ -26,120 +27,113 @@ function AppContent() {
   const [loadingMealPlans, setLoadingMealPlans] = useState(false);
   const [errorMealPlans, setErrorMealPlans] = useState(null);
   const [newMealPlanName, setNewMealPlanName] = useState('');
-  const [selectedMealPlanId, setSelectedMealPlanId] = useState('');
+  const [selectedMealPlan, setSelectedMealPlan] = useState('');
   const [selectedMealType, setSelectedMealType] = useState('dinner');
 
-  // Authentication state
+  // Authentication and navigation state
+  const { user, logout, isAuthenticated } = useAuth();
   const [showAuthForms, setShowAuthForms] = useState(false);
-  const { user, logout, isAuthenticated, loading: authLoading } = useAuth();
+  const [currentView, setCurrentView] = useState('home'); // 'home', 'chef-dashboard'
 
-  // Backend URL
   const BACKEND_URL = 'https://dishcraft-backend-3tk2.onrender.com';
 
-  // Function to fetch meal plans (now requires authentication )
-  const fetchMealPlans = useCallback(async () => {
-    if (!isAuthenticated) {
-      setMealPlans([]);
-      return;
-    }
-
-    setLoadingMealPlans(true);
-    setErrorMealPlans(null);
+  // Fetch ingredients
+  const fetchIngredients = useCallback(async ( ) => {
     try {
+      setLoadingIngredients(true);
+      const response = await axios.get(`${BACKEND_URL}/api/ingredients`);
+      setIngredients(response.data);
+      setLoadingIngredients(false);
+    } catch (err) {
+      console.error('Error fetching ingredients:', err);
+      setErrorIngredients('Failed to load ingredients');
+      setLoadingIngredients(false);
+    }
+  }, [BACKEND_URL]);
+
+  // Fetch meal plans
+  const fetchMealPlans = useCallback(async () => {
+    if (!isAuthenticated) return;
+    
+    try {
+      setLoadingMealPlans(true);
       const response = await axios.get(`${BACKEND_URL}/api/meal-plans`);
       setMealPlans(response.data);
-      if (response.data.length > 0 && !selectedMealPlanId) {
-        setSelectedMealPlanId(response.data[0]._id);
-      }
       setLoadingMealPlans(false);
     } catch (err) {
       console.error('Error fetching meal plans:', err);
-      if (err.response?.status === 401) {
-        setErrorMealPlans('Please log in to view your meal plans.');
-      } else {
-        setErrorMealPlans('Failed to load meal plans.');
-      }
+      setErrorMealPlans('Failed to load meal plans');
       setLoadingMealPlans(false);
     }
-  }, [BACKEND_URL, selectedMealPlanId, isAuthenticated]);
+  }, [BACKEND_URL, isAuthenticated]);
 
-  // Fetch ingredients on component mount (public endpoint)
   useEffect(() => {
-    const fetchIngredients = async () => {
-      try {
-        const response = await axios.get(`${BACKEND_URL}/api/ingredients`);
-        setIngredients(response.data);
-        setLoadingIngredients(false);
-      } catch (err) {
-        console.error('Error fetching ingredients:', err);
-        setErrorIngredients('Failed to load ingredients.');
-        setLoadingIngredients(false);
-      }
-    };
     fetchIngredients();
-  }, [BACKEND_URL]);
+  }, [fetchIngredients]);
 
-  // Fetch meal plans when authentication status changes
   useEffect(() => {
-    if (!authLoading) {
-      fetchMealPlans();
-    }
-  }, [fetchMealPlans, authLoading]);
+    fetchMealPlans();
+  }, [fetchMealPlans]);
 
-  // Filter ingredients based on user input
-  useEffect(() => {
-    if (ingredientInput.trim() && ingredients.length > 0) {
+  // Handle ingredient input and filtering
+  const handleIngredientInputChange = (e) => {
+    const value = e.target.value;
+    setIngredientInput(value);
+
+    if (value.length > 1) {
       const filtered = ingredients.filter(ingredient =>
-        ingredient.name.toLowerCase().includes(ingredientInput.toLowerCase()) &&
-        !userIngredients.some(userIng => userIng._id === ingredient._id)
+        ingredient.name.toLowerCase().includes(value.toLowerCase()) &&
+        !userIngredients.some(userIng => userIng.toLowerCase() === ingredient.name.toLowerCase())
       );
-      setFilteredIngredients(filtered.slice(0, 8));
+      setFilteredIngredients(filtered.slice(0, 10));
       setShowIngredientSuggestions(true);
     } else {
-      setFilteredIngredients([]);
       setShowIngredientSuggestions(false);
     }
-  }, [ingredientInput, ingredients, userIngredients]);
+  };
 
-  // Add ingredient to user's list
-  const addIngredient = (ingredient) => {
-    setUserIngredients([...userIngredients, ingredient]);
+  // Add ingredient from suggestions
+  const addIngredientFromSuggestion = (ingredientName) => {
+    if (!userIngredients.some(ing => ing.toLowerCase() === ingredientName.toLowerCase())) {
+      setUserIngredients([...userIngredients, ingredientName]);
+    }
     setIngredientInput('');
     setShowIngredientSuggestions(false);
   };
 
-  // Remove ingredient from user's list
-  const removeIngredient = (ingredientId) => {
-    setUserIngredients(userIngredients.filter(ing => ing._id !== ingredientId));
-  };
-
-  // Add ingredient by typing (custom ingredient)
+  // Add custom ingredient
   const addCustomIngredient = () => {
-    if (ingredientInput.trim() && !userIngredients.some(ing => ing.name.toLowerCase() === ingredientInput.toLowerCase())) {
-      const customIngredient = {
-        _id: `custom_${Date.now()}`,
-        name: ingredientInput.trim(),
-        category: 'custom'
-      };
-      setUserIngredients([...userIngredients, customIngredient]);
+    const trimmedInput = ingredientInput.trim();
+    if (trimmedInput && !userIngredients.some(ing => ing.toLowerCase() === trimmedInput.toLowerCase())) {
+      setUserIngredients([...userIngredients, trimmedInput]);
       setIngredientInput('');
       setShowIngredientSuggestions(false);
     }
   };
 
-  // Generate recipe based on user ingredients
-  const generateRecipe = async () => {
-    setLoadingRecipe(true);
-    setErrorRecipe(null);
-    setGeneratedRecipe(null);
+  // Remove ingredient
+  const removeIngredient = (ingredientToRemove) => {
+    setUserIngredients(userIngredients.filter(ing => ing !== ingredientToRemove));
+  };
 
-    const preferences = {
-      mode: 'ingredients',
-      userIngredients: userIngredients.map(ing => ing.name)
-    };
+  // Generate recipe
+  const generateRecipe = async () => {
+    if (userIngredients.length < 2) {
+      alert('Please add at least 2 ingredients to generate a recipe.');
+      return;
+    }
 
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/generate-recipe`, { preferences });
+      setLoadingRecipe(true);
+      setErrorRecipe(null);
+
+      const response = await axios.post(`${BACKEND_URL}/api/generate-recipe`, {
+        preferences: {
+          userIngredients,
+          mode: 'ingredients'
+        }
+      });
+
       setGeneratedRecipe(response.data);
       setLoadingRecipe(false);
     } catch (err) {
@@ -149,40 +143,31 @@ function AppContent() {
     }
   };
 
-  // Function to create a new meal plan (requires authentication)
+  // Create meal plan
   const createMealPlan = async () => {
-    if (!isAuthenticated) {
-      alert('Please log in to create meal plans.');
-      setShowAuthForms(true);
+    if (!newMealPlanName.trim()) {
+      alert('Please enter a meal plan name.');
       return;
     }
 
-    if (!newMealPlanName.trim()) {
-      alert('Please enter a name for the meal plan.');
-      return;
-    }
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/meal-plans`, { name: newMealPlanName });
+      const response = await axios.post(`${BACKEND_URL}/api/meal-plans`, {
+        name: newMealPlanName.trim()
+      });
+
       setMealPlans([...mealPlans, response.data]);
       setNewMealPlanName('');
-      setSelectedMealPlanId(response.data._id);
       alert('Meal plan created successfully!');
     } catch (err) {
       console.error('Error creating meal plan:', err);
-      if (err.response?.status === 401) {
-        alert('Please log in to create meal plans.');
-        setShowAuthForms(true);
-      } else {
-        alert('Failed to create meal plan.');
-      }
+      alert('Failed to create meal plan. Please try again.');
     }
   };
 
-  // Function to add generated recipe to selected meal plan (requires authentication)
-  const addRecipeToPlan = async () => {
-    if (!isAuthenticated) {
-      alert('Please log in to save recipes to meal plans.');
-      setShowAuthForms(true);
+  // Add recipe to meal plan
+  const addRecipeToMealPlan = async () => {
+    if (!selectedMealPlan) {
+      alert('Please select a meal plan.');
       return;
     }
 
@@ -190,319 +175,266 @@ function AppContent() {
       alert('Please generate a recipe first.');
       return;
     }
-    if (!selectedMealPlanId) {
-      alert('Please select or create a meal plan.');
-      return;
-    }
+
     try {
-      await axios.post(`${BACKEND_URL}/api/meal-plans/${selectedMealPlanId}/add-recipe`, {
+      await axios.post(`${BACKEND_URL}/api/meal-plans/${selectedMealPlan}/add-recipe`, {
         recipeDetails: generatedRecipe,
         mealType: selectedMealType
       });
-      alert('Recipe added to meal plan!');
-      fetchMealPlans();
+
+      alert('Recipe added to meal plan successfully!');
+      fetchMealPlans(); // Refresh meal plans
     } catch (err) {
       console.error('Error adding recipe to meal plan:', err);
-      if (err.response?.status === 401) {
-        alert('Please log in to save recipes.');
-        setShowAuthForms(true);
-      } else {
-        alert('Failed to add recipe to meal plan.');
-      }
+      alert('Failed to add recipe to meal plan. Please try again.');
     }
   };
 
-  // Function to delete a meal plan (requires authentication)
+  // Delete meal plan
   const deleteMealPlan = async (planId) => {
-    if (!isAuthenticated) return;
-
     if (window.confirm('Are you sure you want to delete this meal plan?')) {
       try {
         await axios.delete(`${BACKEND_URL}/api/meal-plans/${planId}`);
         setMealPlans(mealPlans.filter(plan => plan._id !== planId));
-        if (selectedMealPlanId === planId) {
-          setSelectedMealPlanId(mealPlans.length > 1 ? mealPlans[0]._id : '');
-        }
         alert('Meal plan deleted successfully!');
       } catch (err) {
         console.error('Error deleting meal plan:', err);
-        alert('Failed to delete meal plan.');
+        alert('Failed to delete meal plan. Please try again.');
       }
     }
   };
 
-  // Show loading while checking authentication
-  if (authLoading) {
-    return (
-      <div className="App">
-        <div className="loading-screen">
-          <h2>🍳 Loading DishCraft...</h2>
-          <p>Preparing your kitchen assistant...</p>
-        </div>
-      </div>
-    );
-  }
+  // Navigation functions
+  const handleViewChange = (view) => {
+    setCurrentView(view);
+  };
 
-  return (
-    <div className="App">
-      <header className="App-header">
-        <div className="header-content">
-          <div className="header-left">
-            <h1>🧑‍🍳 DishCraft</h1>
-            <p>Smart Kitchen Assistant - Create recipes from your ingredients</p>
-          </div>
-          
-          <div className="header-right">
-            {isAuthenticated ? (
-              <div className="user-menu">
-                <span className="welcome-text">👋 Welcome, {user.name}!</span>
-                <button onClick={logout} className="logout-btn">
-                  🚪 Logout
-                </button>
-              </div>
-            ) : (
-              <button 
-                onClick={() => setShowAuthForms(true)} 
-                className="login-btn"
-              >
-                🔐 Login / Sign Up
-              </button>
-            )}
-          </div>
-        </div>
-      </header>
+  // Render different views based on currentView state
+  const renderCurrentView = () => {
+    switch (currentView) {
+      case 'chef-dashboard':
+        return <ChefDashboard />;
+      case 'home':
+      default:
+        return renderHomeView();
+    }
+  };
 
-      <main>
-        {/* Authentication Notice for Non-Authenticated Users */}
-        {!isAuthenticated && (
-          <div className="auth-notice">
-            <h3>🎉 Welcome to DishCraft!</h3>
-            <p>Create an account to save your meal plans and access personalized features.</p>
-            <button 
-              onClick={() => setShowAuthForms(true)} 
-              className="auth-notice-btn"
-            >
-              Get Started - It's Free! 🚀
+  // Home view (existing recipe generation and meal planning)
+  const renderHomeView = () => (
+    <>
+      {/* Recipe Generation Section */}
+      <section className="ingredient-input-section">
+        <h2>🧑‍🍳 Smart Recipe Generator</h2>
+        <p>Tell us what ingredients you have, and we'll create the perfect recipe for you!</p>
+
+        <div className="ingredient-input-container">
+          <div className="input-wrapper">
+            <input
+              type="text"
+              value={ingredientInput}
+              onChange={handleIngredientInputChange}
+              placeholder="Type an ingredient (e.g., chicken, tomatoes, rice)..."
+              className="ingredient-input"
+            />
+            <button onClick={addCustomIngredient} className="add-ingredient-btn">
+              ➕ Add
             </button>
+          </div>
+
+          {showIngredientSuggestions && filteredIngredients.length > 0 && (
+            <div className="ingredient-suggestions">
+              {filteredIngredients.map((ingredient, index) => (
+                <div
+                  key={index}
+                  className="suggestion-item"
+                  onClick={() => addIngredientFromSuggestion(ingredient.name)}
+                >
+                  {ingredient.name}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {userIngredients.length > 0 && (
+          <div className="selected-ingredients">
+            <h3>🥘 Your Ingredients ({userIngredients.length}):</h3>
+            <div className="ingredient-tags">
+              {userIngredients.map((ingredient, index) => (
+                <span key={index} className="ingredient-tag">
+                  {ingredient}
+                  <button
+                    onClick={() => removeIngredient(ingredient)}
+                    className="remove-ingredient-btn"
+                  >
+                    ✕
+                  </button>
+                </span>
+              ))}
+            </div>
           </div>
         )}
 
-        {/* Main Ingredient Input Section */}
-        <section className="ingredient-input-section">
-          <h2>🥘 What's in Your Kitchen?</h2>
-          <p className="section-description">Tell us what ingredients you have, and we'll create the perfect recipe for you!</p>
+        <div className="generate-section">
+          <button
+            onClick={generateRecipe}
+            disabled={loadingRecipe || userIngredients.length < 2}
+            className="generate-recipe-btn"
+          >
+            {loadingRecipe ? '🔄 Generating...' : '✨ Generate Recipe'}
+          </button>
           
-          <div className="ingredient-input-container">
-            <div className="input-wrapper">
-              <input
-                type="text"
-                value={ingredientInput}
-                onChange={(e) => setIngredientInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && addCustomIngredient()}
-                placeholder="Type an ingredient (e.g., chicken, tomatoes, rice)..."
-                className="ingredient-input"
-              />
-              <button onClick={addCustomIngredient} className="add-ingredient-btn">
-                ➕ Add
-              </button>
-            </div>
-
-            {/* Ingredient Suggestions */}
-            {showIngredientSuggestions && filteredIngredients.length > 0 && (
-              <div className="ingredient-suggestions">
-                {filteredIngredients.map(ingredient => (
-                  <button
-                    key={ingredient._id}
-                    onClick={() => addIngredient(ingredient)}
-                    className="suggestion-btn"
-                  >
-                    {ingredient.name}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* User's Selected Ingredients */}
-          {userIngredients.length > 0 && (
-            <div className="selected-ingredients">
-              <h3>🛒 Your Ingredients ({userIngredients.length})</h3>
-              <div className="ingredient-tags">
-                {userIngredients.map(ingredient => (
-                  <span key={ingredient._id} className="ingredient-tag">
-                    {ingredient.name}
-                    <button 
-                      onClick={() => removeIngredient(ingredient._id)}
-                      className="remove-ingredient"
-                    >
-                      ✕
-                    </button>
-                  </span>
-                ))}
-              </div>
-              {userIngredients.length < 3 && (
-                <p className="ingredient-tip">💡 Add at least 3 ingredients for better recipe suggestions!</p>
-              )}
-            </div>
+          {userIngredients.length < 2 && (
+            <p className="ingredient-hint">💡 Add at least 2 ingredients to generate a recipe</p>
           )}
+        </div>
 
-          {/* Generate Recipe Button */}
-          <div className="generate-section">
-            <button 
-              onClick={generateRecipe} 
-              disabled={loadingRecipe || userIngredients.length === 0}
-              className="generate-btn"
-            >
-              {loadingRecipe ? '🔄 Creating Your Recipe...' : '🧑‍🍳 Create Recipe from My Ingredients'}
-            </button>
-
-            {userIngredients.length === 0 && (
-              <p className="warning-message">⚠️ Please add some ingredients first to generate a recipe!</p>
-            )}
+        {errorRecipe && (
+          <div className="error-message">
+            ❌ {errorRecipe}
           </div>
+        )}
 
-          {loadingRecipe && <p className="loading-message">🍳 Analyzing your ingredients and creating the perfect recipe...</p>}
-          {errorRecipe && <p className="error-message">❌ Error: {errorRecipe}</p>}
-
-          {/* Generated Recipe Display */}
-          {generatedRecipe && (
-            <div className="generated-recipe-card">
-              <h3>🍽️ {generatedRecipe.title}</h3>
-              <p className="recipe-description">{generatedRecipe.description}</p>
+        {generatedRecipe && (
+          <div className="generated-recipe-card">
+            <h3>🍽️ {generatedRecipe.title}</h3>
+            <p className="recipe-description">{generatedRecipe.description}</p>
+            
+            <div className="recipe-info">
+              <div className="recipe-meta">
+                <span>⏱️ {generatedRecipe.cookingTime}</span>
+                <span>👥 {generatedRecipe.servings} servings</span>
+                <span>📊 {generatedRecipe.difficulty}</span>
+                <span>🕐 Prep: {generatedRecipe.prepTime}</span>
+              </div>
               
-              {/* Ingredient Match Information */}
               {generatedRecipe.ingredientMatch && (
                 <div className="ingredient-match-info">
-                  <p className="match-score">
-                    🎯 <strong>Ingredient Match:</strong> {generatedRecipe.ingredientMatch.matchedCount} of {generatedRecipe.ingredientMatch.totalRequired} required ingredients ({generatedRecipe.ingredientMatch.matchScore}% match)
-                  </p>
-                  {generatedRecipe.ingredientMatch.missingIngredients && generatedRecipe.ingredientMatch.missingIngredients.length > 0 && (
-                    <p className="missing-ingredients">
-                      🛒 <strong>You might need:</strong> {generatedRecipe.ingredientMatch.missingIngredients.join(', ')}
-                    </p>
+                  <h4>📊 Ingredient Match: {generatedRecipe.ingredientMatch.matchScore}%</h4>
+                  <p>✅ Using {generatedRecipe.ingredientMatch.matchedCount} of your {generatedRecipe.ingredientMatch.totalRequired} ingredients</p>
+                  
+                  {generatedRecipe.ingredientMatch.missingIngredients.length > 0 && (
+                    <div className="missing-ingredients">
+                      <p><strong>🛒 You might need:</strong></p>
+                      <div className="missing-ingredient-tags">
+                        {generatedRecipe.ingredientMatch.missingIngredients.map((ingredient, index) => (
+                          <span key={index} className="missing-ingredient-tag">
+                            {ingredient}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
               )}
-              
-              <div className="recipe-details">
-                <div className="recipe-info">
-                  <span className="info-item">⏱️ <strong>Time:</strong> {generatedRecipe.cookingTime}</span>
-                  <span className="info-item">📊 <strong>Difficulty:</strong> {generatedRecipe.difficulty}</span>
-                  <span className="info-item">👥 <strong>Serves:</strong> {generatedRecipe.servings || 4}</span>
+            </div>
+
+            <div className="recipe-components">
+              <h4>🥘 Recipe Components:</h4>
+              <div className="components-grid">
+                <div className="component-item">
+                  <strong>🥩 Protein:</strong> {generatedRecipe.components.protein}
                 </div>
-
-                <h4>🥘 Components:</h4>
-                <ul className="components-list">
-                  <li><strong>Protein:</strong> {generatedRecipe.components.protein}</li>
-                  <li><strong>Vegetable:</strong> {generatedRecipe.components.vegetable}</li>
-                  <li><strong>Carb:</strong> {generatedRecipe.components.carb}</li>
-                  <li><strong>Sauce:</strong> {generatedRecipe.components.sauce}</li>
-                  <li><strong>Cooking Method:</strong> {generatedRecipe.components.cookingMethod}</li>
-                </ul>
-
-                <h4>📝 Instructions:</h4>
-                <ol className="instructions-list">
-                  {generatedRecipe.instructions.map((step, index) => (
-                    <li key={index}>{step}</li>
-                  ))}
-                </ol>
+                <div className="component-item">
+                  <strong>🥬 Vegetable:</strong> {generatedRecipe.components.vegetable}
+                </div>
+                <div className="component-item">
+                  <strong>🍚 Carb:</strong> {generatedRecipe.components.carb}
+                </div>
+                <div className="component-item">
+                  <strong>🥄 Sauce:</strong> {generatedRecipe.components.sauce}
+                </div>
               </div>
+            </div>
 
-              {/* Add to Meal Plan Section - Only show if authenticated */}
-              {isAuthenticated && (
-                <div className="add-to-plan-section">
-                  <h4>📅 Add to Meal Plan</h4>
-                  <div className="meal-plan-controls">
-                    <select 
-                      value={selectedMealPlanId} 
-                      onChange={(e) => setSelectedMealPlanId(e.target.value)} 
-                      disabled={mealPlans.length === 0}
-                      className="meal-plan-select"
-                    >
-                      {mealPlans.length === 0 ? (
-                        <option value="">No meal plans available</option>
-                      ) : (
-                        mealPlans.map(plan => (
-                          <option key={plan._id} value={plan._id}>{plan.name}</option>
-                        ))
-                      )}
-                    </select>
-                    
-                    <select 
-                      value={selectedMealType} 
-                      onChange={(e) => setSelectedMealType(e.target.value)}
-                      className="meal-type-select"
-                    >
-                      <option value="breakfast">🌅 Breakfast</option>
-                      <option value="lunch">☀️ Lunch</option>
-                      <option value="dinner">🌙 Dinner</option>
-                      <option value="snack">🍿 Snack</option>
-                    </select>
-                    
-                    <button 
-                      onClick={addRecipeToPlan} 
-                      disabled={!generatedRecipe || !selectedMealPlanId}
-                      className="add-recipe-btn"
-                    >
-                      ➕ Add to Plan
-                    </button>
-                  </div>
-                </div>
-              )}
+            <div className="recipe-instructions">
+              <h4>📋 Instructions:</h4>
+              <ol className="instructions-list">
+                {generatedRecipe.instructions.map((instruction, index) => (
+                  <li key={index} className="instruction-step">
+                    {instruction}
+                  </li>
+                ))}
+              </ol>
+            </div>
 
-              {/* Login prompt for non-authenticated users */}
-              {!isAuthenticated && (
-                <div className="login-prompt">
-                  <p>💡 <strong>Want to save this recipe?</strong></p>
-                  <button 
-                    onClick={() => setShowAuthForms(true)}
-                    className="login-prompt-btn"
+            {isAuthenticated && (
+              <div className="add-to-meal-plan">
+                <h4>📅 Add to Meal Plan:</h4>
+                <div className="meal-plan-controls">
+                  <select
+                    value={selectedMealPlan}
+                    onChange={(e) => setSelectedMealPlan(e.target.value)}
+                    className="meal-plan-select"
                   >
-                    🔐 Login to Save Recipes
+                    <option value="">Select a meal plan</option>
+                    {mealPlans.map(plan => (
+                      <option key={plan._id} value={plan._id}>
+                        {plan.name}
+                      </option>
+                    ))}
+                  </select>
+                  
+                  <select
+                    value={selectedMealType}
+                    onChange={(e) => setSelectedMealType(e.target.value)}
+                    className="meal-type-select"
+                  >
+                    <option value="breakfast">🌅 Breakfast</option>
+                    <option value="lunch">☀️ Lunch</option>
+                    <option value="dinner">🌙 Dinner</option>
+                    <option value="snack">🍿 Snack</option>
+                  </select>
+                  
+                  <button
+                    onClick={addRecipeToMealPlan}
+                    className="add-to-plan-btn"
+                    disabled={!selectedMealPlan}
+                  >
+                    ➕ Add to Selected Meal Plan
                   </button>
                 </div>
-              )}
-            </div>
-          )}
-        </section>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
 
-        <hr />
+      {/* Meal Planning Section */}
+      <section className="meal-planning-section">
+        {isAuthenticated ? (
+          <>
+            <h2>📅 My Meal Plans</h2>
+            <p>Plan your weekly meals and stay organized with your favorite recipes!</p>
 
-        {/* Meal Planning Section - Enhanced for Authentication */}
-        <section className="meal-planning-section">
-          <h2>📅 My Meal Plans</h2>
-          
-          {isAuthenticated ? (
-            <>
+            <div className="create-meal-plan">
+              <h3>➕ Create New Meal Plan</h3>
               <div className="create-meal-plan-form">
-                <input 
-                  type="text" 
-                  value={newMealPlanName} 
-                  onChange={(e) => setNewMealPlanName(e.target.value)} 
+                <input
+                  type="text"
+                  value={newMealPlanName}
+                  onChange={(e) => setNewMealPlanName(e.target.value)}
                   placeholder="Enter meal plan name (e.g., 'This Week's Meals')"
-                  className="meal-plan-input"
+                  className="meal-plan-name-input"
                 />
                 <button onClick={createMealPlan} className="create-plan-btn">
-                  ➕ Create Meal Plan
+                  🎯 Create Meal Plan
                 </button>
               </div>
+            </div>
 
-              {loadingMealPlans && <p className="loading-message">Loading meal plans...</p>}
-              {errorMealPlans && <p className="error-message">❌ Error: {errorMealPlans}</p>}
-              
-              {mealPlans.length === 0 && !loadingMealPlans && (
-                <div className="empty-state">
-                  <p>📝 You don't have any meal plans yet.</p>
-                  <p>Create your first meal plan above to get started!</p>
-                </div>
-              )}
-
+            {loadingMealPlans ? (
+              <div className="loading">Loading your meal plans...</div>
+            ) : errorMealPlans ? (
+              <div className="error-message">❌ {errorMealPlans}</div>
+            ) : (
               <div className="meal-plans-grid">
                 {mealPlans.map(plan => (
                   <div key={plan._id} className="meal-plan-card">
                     <div className="meal-plan-header">
                       <h3>📋 {plan.name}</h3>
-                      <button 
+                      <button
                         onClick={() => deleteMealPlan(plan._id)}
                         className="delete-plan-btn"
                         title="Delete meal plan"
@@ -542,20 +474,80 @@ function AppContent() {
                   </div>
                 ))}
               </div>
-            </>
-          ) : (
-            <div className="auth-required">
-              <h3>🔐 Login Required</h3>
-              <p>Create an account to access personalized meal planning features!</p>
+            )}
+          </>
+        ) : (
+          <div className="auth-required">
+            <h3>🔐 Login Required</h3>
+            <p>Create an account to access personalized meal planning features!</p>
+            <button 
+              onClick={() => setShowAuthForms(true)}
+              className="auth-required-btn"
+            >
+              🚀 Get Started - It's Free!
+            </button>
+          </div>
+        )}
+      </section>
+    </>
+  );
+
+  return (
+    <div className="App">
+      {/* Enhanced Header with Navigation */}
+      <header className="App-header">
+        <div className="header-content">
+          <div className="header-left">
+            <h1>🍽️ DishCraft</h1>
+            <p>Your AI-Powered Kitchen Assistant</p>
+          </div>
+          
+          {/* Navigation */}
+          <nav className="main-navigation">
+            <button 
+              onClick={() => handleViewChange('home')}
+              className={`nav-btn ${currentView === 'home' ? 'active' : ''}`}
+            >
+              🏠 Home
+            </button>
+            
+            {user && user.role === 'chef' && (
+              <button 
+                onClick={() => handleViewChange('chef-dashboard')}
+                className={`nav-btn ${currentView === 'chef-dashboard' ? 'active' : ''}`}
+              >
+                👨‍🍳 Chef Dashboard
+              </button>
+            )}
+          </nav>
+
+          {/* User Menu */}
+          <div className="user-menu">
+            {isAuthenticated ? (
+              <>
+                <span className="welcome-text">
+                  Welcome, {user.name}! 
+                  {user.role === 'chef' && ' 👨‍🍳'}
+                </span>
+                <button onClick={logout} className="logout-btn">
+                  🚪 Logout
+                </button>
+              </>
+            ) : (
               <button 
                 onClick={() => setShowAuthForms(true)}
-                className="auth-required-btn"
+                className="login-btn"
               >
-                🚀 Get Started - It's Free!
+                🔐 Login / Sign Up
               </button>
-            </div>
-          )}
-        </section>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="main-content">
+        {renderCurrentView()}
       </main>
 
       {/* Authentication Forms Modal */}
