@@ -3,7 +3,7 @@ import axios from 'axios';
 import './App.css';
 
 function App() {
-  // Existing state for ingredients and recipe generation
+  // State for ingredients and recipe generation
   const [ingredients, setIngredients] = useState([]);
   const [loadingIngredients, setLoadingIngredients] = useState(true);
   const [errorIngredients, setErrorIngredients] = useState(null);
@@ -12,12 +12,7 @@ function App() {
   const [loadingRecipe, setLoadingRecipe] = useState(false);
   const [errorRecipe, setErrorRecipe] = useState(null);
 
-  const [selectedDietary, setSelectedDietary] = useState('');
-  const [selectedCuisine, setSelectedCuisine] = useState('');
-  const [selectedProtein, setSelectedProtein] = useState('');
-
   // State for ingredient-based recipe generation
-  const [recipeMode, setRecipeMode] = useState('random'); // 'random' or 'ingredients'
   const [userIngredients, setUserIngredients] = useState([]);
   const [ingredientInput, setIngredientInput] = useState('');
   const [filteredIngredients, setFilteredIngredients] = useState([]);
@@ -31,11 +26,11 @@ function App() {
   const [selectedMealPlanId, setSelectedMealPlanId] = useState('');
   const [selectedMealType, setSelectedMealType] = useState('dinner');
 
-  // IMPORTANT: Your actual Render backend URL
+  // Your Render backend URL
   const BACKEND_URL = 'https://dishcraft-backend-3tk2.onrender.com'; 
 
-  // Function to fetch meal plans (wrapped in useCallback to fix ESLint warnings )
-  const fetchMealPlans = useCallback(async () => {
+  // Function to fetch meal plans
+  const fetchMealPlans = useCallback(async ( ) => {
     setLoadingMealPlans(true);
     setErrorMealPlans(null);
     try {
@@ -52,7 +47,7 @@ function App() {
     }
   }, [BACKEND_URL, selectedMealPlanId]);
 
-  // Fetch ingredients on component mount
+  // Fetch ingredients on component mount (for autocomplete only)
   useEffect(() => {
     const fetchIngredients = async () => {
       try {
@@ -61,7 +56,7 @@ function App() {
         setLoadingIngredients(false);
       } catch (err) {
         console.error('Error fetching ingredients:', err);
-        setErrorIngredients('Failed to load ingredients. Please check your backend URL and CORS settings.');
+        setErrorIngredients('Failed to load ingredients.');
         setLoadingIngredients(false);
       }
     };
@@ -80,7 +75,7 @@ function App() {
         ingredient.name.toLowerCase().includes(ingredientInput.toLowerCase()) &&
         !userIngredients.some(userIng => userIng._id === ingredient._id)
       );
-      setFilteredIngredients(filtered.slice(0, 8)); // Show max 8 suggestions
+      setFilteredIngredients(filtered.slice(0, 8));
       setShowIngredientSuggestions(true);
     } else {
       setFilteredIngredients([]);
@@ -100,7 +95,7 @@ function App() {
     setUserIngredients(userIngredients.filter(ing => ing._id !== ingredientId));
   };
 
-  // Add ingredient by typing (if not in database)
+  // Add ingredient by typing (custom ingredient)
   const addCustomIngredient = () => {
     if (ingredientInput.trim() && !userIngredients.some(ing => ing.name.toLowerCase() === ingredientInput.toLowerCase())) {
       const customIngredient = {
@@ -114,18 +109,15 @@ function App() {
     }
   };
 
-  // Enhanced function to generate a recipe based on mode and preferences
+  // Generate recipe based on user ingredients
   const generateRecipe = async () => {
     setLoadingRecipe(true);
     setErrorRecipe(null);
     setGeneratedRecipe(null);
 
     const preferences = {
-      dietary: selectedDietary,
-      cuisine: selectedCuisine,
-      protein: selectedProtein,
-      mode: recipeMode,
-      userIngredients: recipeMode === 'ingredients' ? userIngredients.map(ing => ing.name) : []
+      mode: 'ingredients',
+      userIngredients: userIngredients.map(ing => ing.name)
     };
 
     try {
@@ -200,193 +192,99 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <h1>🍽️ DishCraft</h1>
-        <p>Smart Recipe Generator & Meal Planner</p>
+        <h1>🧑‍🍳 DishCraft</h1>
+        <p>Smart Kitchen Assistant - Create recipes from your ingredients</p>
       </header>
 
       <main>
-        {/* Ingredients Section */}
-        <section className="ingredients-section">
-          <h2>📋 Available Ingredients</h2>
-          {loadingIngredients ? (
-            <p>Loading ingredients...</p>
-          ) : errorIngredients ? (
-            <p className="error-message">Error: {errorIngredients}</p>
-          ) : ingredients.length === 0 ? (
-            <p>No ingredients found. Please seed your database.</p>
-          ) : (
-            <ul className="ingredient-list">
-              {ingredients.slice(0, 12).map((ingredient) => (
-                <li key={ingredient._id}>{ingredient.name}</li>
-              ))}
-              {ingredients.length > 12 && (
-                <li className="ingredient-more">...and {ingredients.length - 12} more</li>
-              )}
-            </ul>
-          )}
-        </section>
-
-        <hr />
-
-        {/* Recipe Generation Mode Selection */}
-        <section className="recipe-mode-section">
-          <h2>🎯 Choose Your Recipe Generation Mode</h2>
-          <div className="mode-selector">
-            <button 
-              className={`mode-btn ${recipeMode === 'random' ? 'active' : ''}`}
-              onClick={() => setRecipeMode('random')}
-            >
-              🎲 Random Recipe
-            </button>
-            <button 
-              className={`mode-btn ${recipeMode === 'ingredients' ? 'active' : ''}`}
-              onClick={() => setRecipeMode('ingredients')}
-            >
-              🧑‍🍳 Use My Ingredients
-            </button>
-          </div>
-        </section>
-
-        {/* Ingredient Input Section (only show when ingredients mode is selected) */}
-        {recipeMode === 'ingredients' && (
-          <section className="ingredient-input-section">
-            <h2>🥘 What's in Your Kitchen?</h2>
-            <p className="section-description">Tell us what ingredients you have, and we'll create a perfect recipe for you!</p>
-            
-            <div className="ingredient-input-container">
-              <div className="input-wrapper">
-                <input
-                  type="text"
-                  value={ingredientInput}
-                  onChange={(e) => setIngredientInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && addCustomIngredient()}
-                  placeholder="Type an ingredient (e.g., chicken, tomatoes, rice)..."
-                  className="ingredient-input"
-                />
-                <button onClick={addCustomIngredient} className="add-ingredient-btn">
-                  ➕ Add
-                </button>
-              </div>
-
-              {/* Ingredient Suggestions */}
-              {showIngredientSuggestions && filteredIngredients.length > 0 && (
-                <div className="ingredient-suggestions">
-                  {filteredIngredients.map(ingredient => (
-                    <button
-                      key={ingredient._id}
-                      onClick={() => addIngredient(ingredient)}
-                      className="suggestion-btn"
-                    >
-                      {ingredient.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* User's Selected Ingredients */}
-            {userIngredients.length > 0 && (
-              <div className="selected-ingredients">
-                <h3>🛒 Your Ingredients ({userIngredients.length})</h3>
-                <div className="ingredient-tags">
-                  {userIngredients.map(ingredient => (
-                    <span key={ingredient._id} className="ingredient-tag">
-                      {ingredient.name}
-                      <button 
-                        onClick={() => removeIngredient(ingredient._id)}
-                        className="remove-ingredient"
-                      >
-                        ✕
-                      </button>
-                    </span>
-                  ))}
-                </div>
-                {userIngredients.length < 3 && (
-                  <p className="ingredient-tip">💡 Add at least 3 ingredients for better recipe suggestions!</p>
-                )}
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* Recipe Generation Section */}
-        <section className="recipe-generation-section">
-          <h2>🎲 Generate a New Recipe</h2>
+        {/* Main Ingredient Input Section */}
+        <section className="ingredient-input-section">
+          <h2>🥘 What's in Your Kitchen?</h2>
+          <p className="section-description">Tell us what ingredients you have, and we'll create the perfect recipe for you!</p>
           
-          {/* Show preferences only in random mode or as additional filters */}
-          <div className="preferences-input">
-            <div className="input-group">
-              <label htmlFor="dietary-select">Dietary Preference:</label>
-              <select
-                id="dietary-select"
-                value={selectedDietary}
-                onChange={(e) => setSelectedDietary(e.target.value)}
-              >
-                <option value="">Any</option>
-                <option value="vegetarian">Vegetarian</option>
-                <option value="vegan">Vegan</option>
-                <option value="gluten-free">Gluten-Free</option>
-              </select>
+          <div className="ingredient-input-container">
+            <div className="input-wrapper">
+              <input
+                type="text"
+                value={ingredientInput}
+                onChange={(e) => setIngredientInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && addCustomIngredient()}
+                placeholder="Type an ingredient (e.g., chicken, tomatoes, rice)..."
+                className="ingredient-input"
+              />
+              <button onClick={addCustomIngredient} className="add-ingredient-btn">
+                ➕ Add
+              </button>
             </div>
 
-            <div className="input-group">
-              <label htmlFor="cuisine-select">Cuisine Type:</label>
-              <select
-                id="cuisine-select"
-                value={selectedCuisine}
-                onChange={(e) => setSelectedCuisine(e.target.value)}
-              >
-                <option value="">Any</option>
-                <option value="italian">Italian</option>
-                <option value="mexican">Mexican</option>
-                <option value="asian">Asian</option>
-                <option value="american">American</option>
-              </select>
-            </div>
-
-            {recipeMode === 'random' && (
-              <div className="input-group">
-                <label htmlFor="protein-select">Main Protein:</label>
-                <select
-                  id="protein-select"
-                  value={selectedProtein}
-                  onChange={(e) => setSelectedProtein(e.target.value)}
-                >
-                  <option value="">Any</option>
-                  {ingredients.filter(ing => ing.category === 'protein').map(ing => (
-                    <option key={ing._id} value={ing.name.toLowerCase()}>{ing.name}</option>
-                  ))}
-                </select>
+            {/* Ingredient Suggestions */}
+            {showIngredientSuggestions && filteredIngredients.length > 0 && (
+              <div className="ingredient-suggestions">
+                {filteredIngredients.map(ingredient => (
+                  <button
+                    key={ingredient._id}
+                    onClick={() => addIngredient(ingredient)}
+                    className="suggestion-btn"
+                  >
+                    {ingredient.name}
+                  </button>
+                ))}
               </div>
             )}
           </div>
 
-          <button 
-            onClick={generateRecipe} 
-            disabled={loadingRecipe || (recipeMode === 'ingredients' && userIngredients.length === 0)}
-            className="generate-btn"
-          >
-            {loadingRecipe ? '🔄 Generating...' : 
-             recipeMode === 'ingredients' ? '🧑‍🍳 Create Recipe from My Ingredients' : '✨ Generate Random Recipe'}
-          </button>
-
-          {recipeMode === 'ingredients' && userIngredients.length === 0 && (
-            <p className="warning-message">⚠️ Please add some ingredients first to generate a recipe!</p>
+          {/* User's Selected Ingredients */}
+          {userIngredients.length > 0 && (
+            <div className="selected-ingredients">
+              <h3>🛒 Your Ingredients ({userIngredients.length})</h3>
+              <div className="ingredient-tags">
+                {userIngredients.map(ingredient => (
+                  <span key={ingredient._id} className="ingredient-tag">
+                    {ingredient.name}
+                    <button 
+                      onClick={() => removeIngredient(ingredient._id)}
+                      className="remove-ingredient"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                ))}
+              </div>
+              {userIngredients.length < 3 && (
+                <p className="ingredient-tip">💡 Add at least 3 ingredients for better recipe suggestions!</p>
+              )}
+            </div>
           )}
 
-          {loadingRecipe && <p className="loading-message">🍳 Generating your delicious recipe...</p>}
+          {/* Generate Recipe Button */}
+          <div className="generate-section">
+            <button 
+              onClick={generateRecipe} 
+              disabled={loadingRecipe || userIngredients.length === 0}
+              className="generate-btn"
+            >
+              {loadingRecipe ? '🔄 Creating Your Recipe...' : '🧑‍🍳 Create Recipe from My Ingredients'}
+            </button>
+
+            {userIngredients.length === 0 && (
+              <p className="warning-message">⚠️ Please add some ingredients first to generate a recipe!</p>
+            )}
+          </div>
+
+          {loadingRecipe && <p className="loading-message">🍳 Analyzing your ingredients and creating the perfect recipe...</p>}
           {errorRecipe && <p className="error-message">❌ Error: {errorRecipe}</p>}
 
+          {/* Generated Recipe Display */}
           {generatedRecipe && (
             <div className="generated-recipe-card">
               <h3>🍽️ {generatedRecipe.title}</h3>
               <p className="recipe-description">{generatedRecipe.description}</p>
               
-              {/* Show ingredient match info for ingredient-based recipes */}
-              {recipeMode === 'ingredients' && generatedRecipe.ingredientMatch && (
+              {/* Ingredient Match Information */}
+              {generatedRecipe.ingredientMatch && (
                 <div className="ingredient-match-info">
                   <p className="match-score">
-                    🎯 <strong>Ingredient Match:</strong> {generatedRecipe.ingredientMatch.matchedCount} of {generatedRecipe.ingredientMatch.totalRequired} required ingredients
+                    🎯 <strong>Ingredient Match:</strong> {generatedRecipe.ingredientMatch.matchedCount} of {generatedRecipe.ingredientMatch.totalRequired} required ingredients ({generatedRecipe.ingredientMatch.matchScore}% match)
                   </p>
                   {generatedRecipe.ingredientMatch.missingIngredients && generatedRecipe.ingredientMatch.missingIngredients.length > 0 && (
                     <p className="missing-ingredients">
