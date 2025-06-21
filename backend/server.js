@@ -49,783 +49,204 @@ const generateToken = (userId) => {
   return jwt.sign(
     { userId },
     process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRE || '7d' }
+    { expiresIn: process.env.JWT_EXPIRE || "7d" }
   );
 };
 
-// Helper functions for recipe generation (existing)
+// Add these helper functions before the generate recipe endpoint
+
+// Helper function to generate cooking instructions
 const generateInstructions = (protein, vegetable, carb, sauce, cookingMethod) => {
   const instructions = [];
   
   switch (cookingMethod.toLowerCase()) {
-    case 'bake/roast':
-    case 'bake':
-    case 'roast':
-      instructions.push(`Preheat your oven to 375°F (190°C).`);
-      instructions.push(`Season the ${protein.toLowerCase()} with salt, pepper, and your favorite herbs.`);
-      instructions.push(`Prepare the ${vegetable.toLowerCase()} by washing and cutting into appropriate sizes.`);
-      instructions.push(`Cook the ${carb.toLowerCase()} according to package directions until tender.`);
-      instructions.push(`Place the seasoned ${protein.toLowerCase()} in a baking dish and roast for 25-30 minutes.`);
-      instructions.push(`In the last 10 minutes, add the ${vegetable.toLowerCase()} to the baking dish.`);
-      instructions.push(`Warm the ${sauce.toLowerCase()} in a small saucepan over low heat.`);
-      instructions.push(`Serve the roasted ${protein.toLowerCase()} and ${vegetable.toLowerCase()} over the ${carb.toLowerCase()}, topped with ${sauce.toLowerCase()}.`);
+    case 'grilling':
+    case 'grilled':
+      instructions.push(`Preheat grill to medium-high heat.`);
+      instructions.push(`Season the ${protein} with salt and pepper.`);
+      instructions.push(`Grill the ${protein} for 6-8 minutes per side until cooked through.`);
+      instructions.push(`Meanwhile, prepare the ${vegetable} by cutting into bite-sized pieces.`);
+      instructions.push(`Cook the ${carb} according to package instructions.`);
+      instructions.push(`Toss the ${vegetable} with ${sauce} and serve alongside the grilled ${protein} and ${carb}.`);
       break;
       
-    case 'stir-fry':
-      instructions.push(`Heat 2 tablespoons of oil in a large wok or skillet over high heat.`);
-      instructions.push(`Cut the ${protein.toLowerCase()} into bite-sized pieces and season with salt and pepper.`);
-      instructions.push(`Prepare the ${vegetable.toLowerCase()} by cutting into uniform pieces for even cooking.`);
-      instructions.push(`Cook the ${carb.toLowerCase()} according to package directions and set aside.`);
-      instructions.push(`Add the ${protein.toLowerCase()} to the hot wok and stir-fry for 3-4 minutes until cooked through.`);
-      instructions.push(`Add the ${vegetable.toLowerCase()} and continue stir-frying for 2-3 minutes until crisp-tender.`);
-      instructions.push(`Add the ${sauce.toLowerCase()} and toss everything together for 1 minute.`);
-      instructions.push(`Serve immediately over the prepared ${carb.toLowerCase()}.`);
+    case 'stir-frying':
+    case 'stir-fried':
+      instructions.push(`Heat oil in a large wok or skillet over high heat.`);
+      instructions.push(`Cut ${protein} into small pieces and add to the hot pan.`);
+      instructions.push(`Stir-fry the ${protein} for 3-4 minutes until nearly cooked.`);
+      instructions.push(`Add chopped ${vegetable} and continue stir-frying for 2-3 minutes.`);
+      instructions.push(`Cook ${carb} separately according to package instructions.`);
+      instructions.push(`Add ${sauce} to the pan and toss everything together for 1 minute.`);
+      instructions.push(`Serve hot over the prepared ${carb}.`);
       break;
       
-    case 'grill':
-      instructions.push(`Preheat your grill to medium-high heat.`);
-      instructions.push(`Season the ${protein.toLowerCase()} with salt, pepper, and olive oil.`);
-      instructions.push(`Prepare the ${vegetable.toLowerCase()} for grilling by cutting into appropriate sizes.`);
-      instructions.push(`Cook the ${carb.toLowerCase()} according to package directions.`);
-      instructions.push(`Grill the ${protein.toLowerCase()} for 6-8 minutes per side until cooked through.`);
-      instructions.push(`Grill the ${vegetable.toLowerCase()} for 4-5 minutes until lightly charred and tender.`);
-      instructions.push(`Warm the ${sauce.toLowerCase()} and serve alongside the grilled items.`);
-      instructions.push(`Plate the grilled ${protein.toLowerCase()} and ${vegetable.toLowerCase()} with the ${carb.toLowerCase()} and drizzle with ${sauce.toLowerCase()}.`);
+    case 'baking':
+    case 'baked':
+      instructions.push(`Preheat oven to 375°F (190°C).`);
+      instructions.push(`Place ${protein} in a baking dish and season with salt and pepper.`);
+      instructions.push(`Add chopped ${vegetable} around the ${protein}.`);
+      instructions.push(`Drizzle with ${sauce} and cover with foil.`);
+      instructions.push(`Bake for 25-30 minutes until ${protein} is cooked through.`);
+      instructions.push(`Meanwhile, prepare ${carb} according to package instructions.`);
+      instructions.push(`Serve the baked ${protein} and ${vegetable} over the ${carb}.`);
       break;
       
-    case 'steam':
-      instructions.push(`Set up a steamer basket in a large pot with about 1 inch of water.`);
-      instructions.push(`Bring the water to a boil over high heat.`);
-      instructions.push(`Season the ${protein.toLowerCase()} lightly with salt and pepper.`);
-      instructions.push(`Prepare the ${vegetable.toLowerCase()} by cutting into uniform pieces.`);
-      instructions.push(`Cook the ${carb.toLowerCase()} according to package directions.`);
-      instructions.push(`Steam the ${protein.toLowerCase()} for 12-15 minutes until cooked through.`);
-      instructions.push(`Add the ${vegetable.toLowerCase()} to the steamer and continue for 5-7 minutes until tender.`);
-      instructions.push(`Warm the ${sauce.toLowerCase()} in a small saucepan.`);
-      instructions.push(`Serve the steamed ${protein.toLowerCase()} and ${vegetable.toLowerCase()} over ${carb.toLowerCase()} with ${sauce.toLowerCase()}.`);
+    case 'sautéing':
+    case 'sautéed':
+      instructions.push(`Heat oil in a large skillet over medium-high heat.`);
+      instructions.push(`Season ${protein} with salt and pepper, then add to the pan.`);
+      instructions.push(`Cook ${protein} for 4-5 minutes per side until golden brown.`);
+      instructions.push(`Remove ${protein} and set aside.`);
+      instructions.push(`Add ${vegetable} to the same pan and sauté for 3-4 minutes.`);
+      instructions.push(`Cook ${carb} according to package instructions.`);
+      instructions.push(`Return ${protein} to the pan, add ${sauce}, and cook for 2 more minutes.`);
+      instructions.push(`Serve over the prepared ${carb}.`);
+      break;
+      
+    case 'steaming':
+    case 'steamed':
+      instructions.push(`Set up a steamer basket over boiling water.`);
+      instructions.push(`Season ${protein} with salt and pepper.`);
+      instructions.push(`Steam ${protein} for 12-15 minutes until cooked through.`);
+      instructions.push(`Add ${vegetable} to the steamer for the last 5 minutes.`);
+      instructions.push(`Cook ${carb} separately according to package instructions.`);
+      instructions.push(`Serve the steamed ${protein} and ${vegetable} over ${carb} with ${sauce} on the side.`);
       break;
       
     default:
-      instructions.push(`Prepare all ingredients by washing and cutting as needed.`);
-      instructions.push(`Season the ${protein.toLowerCase()} with salt and pepper.`);
-      instructions.push(`Cook the ${protein.toLowerCase()} using your preferred method until done.`);
-      instructions.push(`Prepare the ${vegetable.toLowerCase()} by cooking until tender.`);
-      instructions.push(`Cook the ${carb.toLowerCase()} according to package directions.`);
-      instructions.push(`Warm the ${sauce.toLowerCase()} if needed.`);
-      instructions.push(`Combine all components and serve hot.`);
+      instructions.push(`Prepare ${protein} by seasoning with salt and pepper.`);
+      instructions.push(`Cook ${protein} using your preferred method until done.`);
+      instructions.push(`Prepare ${vegetable} by cutting and cooking until tender.`);
+      instructions.push(`Cook ${carb} according to package instructions.`);
+      instructions.push(`Combine all ingredients and serve with ${sauce}.`);
   }
   
   return instructions;
 };
 
+// Helper function to estimate cooking time
 const estimateCookingTime = (cookingMethod) => {
-  const timeRanges = {
-    'bake/roast': '35-45',
-    'bake': '30-40',
-    'roast': '35-45',
-    'stir-fry': '15-20',
-    'grill': '20-25',
-    'steam': '25-30',
-    'sauté': '20-25',
-    'boil': '15-25'
-  };
-  
-  return timeRanges[cookingMethod.toLowerCase()] || '25-35';
-};
-
-const determineDifficulty = (cookingMethod) => {
-  const easyMethods = ['steam', 'boil', 'bake'];
-  const hardMethods = ['stir-fry', 'grill'];
-  
-  if (easyMethods.includes(cookingMethod.toLowerCase())) {
-    return 'easy';
-  } else if (hardMethods.includes(cookingMethod.toLowerCase())) {
-    return 'medium';
+  switch (cookingMethod.toLowerCase()) {
+    case 'grilling':
+    case 'grilled':
+      return '20-25';
+    case 'stir-frying':
+    case 'stir-fried':
+      return '15-20';
+    case 'baking':
+    case 'baked':
+      return '35-40';
+    case 'sautéing':
+    case 'sautéed':
+      return '20-25';
+    case 'steaming':
+    case 'steamed':
+      return '25-30';
+    case 'roasting':
+    case 'roasted':
+      return '45-60';
+    case 'braising':
+    case 'braised':
+      return '60-90';
+    default:
+      return '25-30';
   }
-  return 'easy';
 };
 
-// Existing authentication routes
-app.post("/api/auth/register", async (req, res) => {
+// Helper function to determine difficulty level
+const determineDifficulty = (cookingMethod) => {
+  switch (cookingMethod.toLowerCase()) {
+    case 'steaming':
+    case 'steamed':
+    case 'baking':
+    case 'baked':
+    case 'roasting':
+    case 'roasted':
+      return 'easy';
+    case 'grilling':
+    case 'grilled':
+    case 'sautéing':
+    case 'sautéed':
+    case 'stir-frying':
+    case 'stir-fried':
+      return 'medium';
+    case 'braising':
+    case 'braised':
+      return 'hard';
+    default:
+      return 'medium';
+  }
+};
+
+// User registration
+app.post("/api/register", async (req, res) => {
   try {
-    const { name, email, password, role = 'user' } = req.body;
+    const { username, email, password, role } = req.body;
 
-    if (!name || !email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Please provide name, email, and password"
-      });
+    if (!username || !email || !password || !role) {
+      return res.status(400).json({ message: "All fields are required" });
     }
 
-    const existingUser = await User.findByEmail(email);
+    const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: "User with this email already exists"
-      });
+      return res.status(400).json({ message: "User already exists" });
     }
 
-    const user = new User({
-      name,
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newUser = new User({
+      username,
       email,
-      password,
+      password: hashedPassword,
       role,
-      // Initialize chef profile if role is chef
-      ...(role === 'chef' && {
-        chefProfile: {
-          professionalTitle: "",
-          yearsOfExperience: 0,
-          specialties: [],
-          isVerifiedChef: false,
-          allowMessages: true,
-          showEmail: false,
-          showLocation: true
-        }
-      })
     });
 
-    await user.save();
+    await newUser.save();
 
-    const token = generateToken(user._id);
+    const token = generateToken(newUser._id);
 
-    res.status(201).json({
-      success: true,
-      message: "User registered successfully",
-      token,
-      user: user.getPublicProfile()
-    });
-  } catch (error) {
-    console.error("Registration error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error during registration",
-      error: error.message
-    });
+    res.status(201).json({ success: true, message: "User registered successfully", token });
+  } catch (err) {
+    console.error("Error registering user:", err.message);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
-app.post("/api/auth/login", async (req, res) => {
+// User login
+app.post("/api/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Please provide email and password"
-      });
+      return res.status(400).json({ message: "Email and password are required" });
     }
 
-    const user = await User.findByEmail(email).select('+password');
+    const user = await User.findOne({ email });
     if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid email or password"
-      });
+      return res.status(400).json({ message: "Invalid credentials" });
     }
 
-    const isPasswordValid = await user.comparePassword(password);
-    if (!isPasswordValid) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid email or password"
-      });
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Invalid credentials" });
     }
-
-    if (!user.isActive) {
-      return res.status(401).json({
-        success: false,
-        message: "Account is deactivated"
-      });
-    }
-
-    // Update login statistics
-    user.lastLogin = new Date();
-    user.loginCount += 1;
-    await user.save();
 
     const token = generateToken(user._id);
 
-    res.json({
-      success: true,
-      message: "Login successful",
-      token,
-      user: user.getPublicProfile()
-    });
-  } catch (error) {
-    console.error("Login error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error during login",
-      error: error.message
-    });
+    res.status(200).json({ success: true, message: "Logged in successfully", token, user: { id: user._id, username: user.username, email: user.email, role: user.role } });
+  } catch (err) {
+    console.error("Error logging in:", err.message);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
-app.get("/api/auth/profile", authenticateToken, async (req, res) => {
-  try {
-    res.json({
-      success: true,
-      user: req.user.getPublicProfile()
-    });
-  } catch (error) {
-    console.error("Profile fetch error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error fetching profile"
-    });
-  }
+// Protected route example
+app.get("/api/protected", authenticateToken, (req, res) => {
+  res.status(200).json({ message: "You have access to protected data!", user: req.user });
 });
 
-app.put("/api/auth/profile", authenticateToken, async (req, res) => {
-  try {
-    const allowedUpdates = [
-      'name', 'bio', 'location', 'dietaryPreferences', 'cuisinePreferences',
-      'profileImage', 'chefProfile'
-    ];
-    
-    const updates = {};
-    Object.keys(req.body).forEach(key => {
-      if (allowedUpdates.includes(key)) {
-        updates[key] = req.body[key];
-      }
-    });
-
-    const user = await User.findByIdAndUpdate(
-      req.user._id,
-      { $set: updates },
-      { new: true, runValidators: true }
-    );
-
-    res.json({
-      success: true,
-      message: "Profile updated successfully",
-      user: user.getPublicProfile()
-    });
-  } catch (error) {
-    console.error("Profile update error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error updating profile"
-    });
-  }
-});
-
-// ===== NEW CHEF RECIPE ENDPOINTS =====
-
-// GET all public chef recipes with filtering and search
-app.get("/api/chef-recipes", optionalAuth, async (req, res) => {
-  try {
-    const {
-      page = 1,
-      limit = 20,
-      category,
-      cuisine,
-      difficulty,
-      search,
-      chefId,
-      featured,
-      sort = 'newest'
-    } = req.query;
-
-    const query = {
-      status: 'approved',
-      isPublic: true
-    };
-
-    // Apply filters
-    if (category) query.category = category;
-    if (cuisine) query.cuisine = cuisine;
-    if (difficulty) query.difficulty = difficulty;
-    if (chefId) query.chefId = chefId;
-    if (featured === 'true') query.isFeatured = true;
-
-    // Apply search
-    if (search) {
-      const searchRegex = new RegExp(search, 'i');
-      query.$or = [
-        { title: searchRegex },
-        { description: searchRegex },
-        { tags: { $in: [searchRegex] } },
-        { 'ingredients.name': searchRegex }
-      ];
-    }
-
-    // Determine sort order
-    let sortOption = { createdAt: -1 }; // default: newest
-    switch (sort) {
-      case 'oldest':
-        sortOption = { createdAt: 1 };
-        break;
-      case 'popular':
-        sortOption = { views: -1, 'likes.length': -1 };
-        break;
-      case 'rating':
-        sortOption = { 'ratings.rating': -1 };
-        break;
-      case 'cookTime':
-        sortOption = { totalTime: 1 };
-        break;
-    }
-
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-
-    const recipes = await ChefRecipe.find(query)
-      .populate('chefId', 'name email role chefProfile')
-      .sort(sortOption)
-      .skip(skip)
-      .limit(parseInt(limit));
-
-    const total = await ChefRecipe.countDocuments(query);
-
-    res.json({
-      success: true,
-      recipes,
-      pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(total / parseInt(limit)),
-        totalRecipes: total,
-        hasNext: skip + recipes.length < total,
-        hasPrev: parseInt(page) > 1
-      }
-    });
-  } catch (error) {
-    console.error("Error fetching chef recipes:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error fetching recipes"
-    });
-  }
-});
-
-// GET single chef recipe by ID
-app.get("/api/chef-recipes/:id", optionalAuth, async (req, res) => {
-  try {
-    const recipe = await ChefRecipe.findById(req.params.id)
-      .populate('chefId', 'name email role chefProfile');
-
-    if (!recipe) {
-      return res.status(404).json({
-        success: false,
-        message: "Recipe not found"
-      });
-    }
-
-    // Check if recipe is public or user has access
-    if (!recipe.isPublic && recipe.status !== 'approved') {
-      if (!req.user || (req.user._id.toString() !== recipe.chefId._id.toString() && req.user.role !== 'admin')) {
-        return res.status(403).json({
-          success: false,
-          message: "Access denied"
-        });
-      }
-    }
-
-    // Increment views (but not for the recipe owner)
-    if (!req.user || req.user._id.toString() !== recipe.chefId._id.toString()) {
-      await recipe.incrementViews();
-    }
-
-    res.json({
-      success: true,
-      recipe
-    });
-  } catch (error) {
-    console.error("Error fetching recipe:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error fetching recipe"
-    });
-  }
-});
-
-// POST create new chef recipe (chef only)
-app.post("/api/chef-recipes", authenticateToken, requireChef, async (req, res) => {
-  try {
-    const recipeData = {
-      ...req.body,
-      chefId: req.user._id
-    };
-
-    const recipe = new ChefRecipe(recipeData);
-    await recipe.save();
-
-    // Update chef statistics
-    await req.user.updateChefStats();
-
-    const populatedRecipe = await ChefRecipe.findById(recipe._id)
-      .populate('chefId', 'name email role chefProfile');
-
-    res.status(201).json({
-      success: true,
-      message: "Recipe created successfully",
-      recipe: populatedRecipe
-    });
-  } catch (error) {
-    console.error("Error creating recipe:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error creating recipe",
-      error: error.message
-    });
-  }
-});
-
-// PUT update chef recipe (chef owner only)
-app.put("/api/chef-recipes/:id", authenticateToken, requireChef, async (req, res) => {
-  try {
-    const recipe = await ChefRecipe.findById(req.params.id);
-
-    if (!recipe) {
-      return res.status(404).json({
-        success: false,
-        message: "Recipe not found"
-      });
-    }
-
-    // Check if user owns this recipe
-    if (recipe.chefId.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied. You can only edit your own recipes."
-      });
-    }
-
-    // Update recipe
-    Object.keys(req.body).forEach(key => {
-      if (key !== 'chefId') { // Prevent changing recipe owner
-        recipe[key] = req.body[key];
-      }
-    });
-
-    // Reset status to pending if content was changed significantly
-    if (req.body.title || req.body.ingredients || req.body.instructions) {
-      recipe.status = 'pending';
-    }
-
-    await recipe.save();
-
-    const populatedRecipe = await ChefRecipe.findById(recipe._id)
-      .populate('chefId', 'name email role chefProfile');
-
-    res.json({
-      success: true,
-      message: "Recipe updated successfully",
-      recipe: populatedRecipe
-    });
-  } catch (error) {
-    console.error("Error updating recipe:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error updating recipe"
-    });
-  }
-});
-
-// DELETE chef recipe (chef owner only)
-app.delete("/api/chef-recipes/:id", authenticateToken, requireChef, async (req, res) => {
-  try {
-    const recipe = await ChefRecipe.findById(req.params.id);
-
-    if (!recipe) {
-      return res.status(404).json({
-        success: false,
-        message: "Recipe not found"
-      });
-    }
-
-    // Check if user owns this recipe
-    if (recipe.chefId.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied. You can only delete your own recipes."
-      });
-    }
-
-    await ChefRecipe.findByIdAndDelete(req.params.id);
-
-    // Update chef statistics
-    await req.user.updateChefStats();
-
-    res.json({
-      success: true,
-      message: "Recipe deleted successfully"
-    });
-  } catch (error) {
-    console.error("Error deleting recipe:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error deleting recipe"
-    });
-  }
-});
-
-// GET chef's own recipes (chef only)
-app.get("/api/my-recipes", authenticateToken, requireChef, async (req, res) => {
-  try {
-    const {
-      page = 1,
-      limit = 20,
-      status,
-      category,
-      sort = 'newest'
-    } = req.query;
-
-    const query = { chefId: req.user._id };
-
-    if (status) query.status = status;
-    if (category) query.category = category;
-
-    let sortOption = { createdAt: -1 };
-    switch (sort) {
-      case 'oldest':
-        sortOption = { createdAt: 1 };
-        break;
-      case 'popular':
-        sortOption = { views: -1 };
-        break;
-      case 'rating':
-        sortOption = { 'ratings.rating': -1 };
-        break;
-    }
-
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-
-    const recipes = await ChefRecipe.find(query)
-      .sort(sortOption)
-      .skip(skip)
-      .limit(parseInt(limit));
-
-    const total = await ChefRecipe.countDocuments(query);
-
-    res.json({
-      success: true,
-      recipes,
-      pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(total / parseInt(limit)),
-        totalRecipes: total
-      }
-    });
-  } catch (error) {
-    console.error("Error fetching chef's recipes:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error fetching your recipes"
-    });
-  }
-});
-
-// POST rate a chef recipe (authenticated users only)
-app.post("/api/chef-recipes/:id/rate", authenticateToken, async (req, res) => {
-  try {
-    const { rating, review = '' } = req.body;
-
-    if (!rating || rating < 1 || rating > 5) {
-      return res.status(400).json({
-        success: false,
-        message: "Rating must be between 1 and 5"
-      });
-    }
-
-    const recipe = await ChefRecipe.findById(req.params.id);
-    if (!recipe) {
-      return res.status(404).json({
-        success: false,
-        message: "Recipe not found"
-      });
-    }
-
-    // Prevent chef from rating their own recipe
-    if (recipe.chefId.toString() === req.user._id.toString()) {
-      return res.status(400).json({
-        success: false,
-        message: "You cannot rate your own recipe"
-      });
-    }
-
-    await recipe.addRating(req.user._id, rating, review);
-
-    // Update chef statistics
-    const chef = await User.findById(recipe.chefId);
-    if (chef) {
-      await chef.updateChefStats();
-    }
-
-    res.json({
-      success: true,
-      message: "Rating added successfully",
-      averageRating: recipe.averageRating,
-      ratingsCount: recipe.ratingsCount
-    });
-  } catch (error) {
-    console.error("Error rating recipe:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error rating recipe"
-    });
-  }
-});
-
-// POST like/unlike a chef recipe (authenticated users only)
-app.post("/api/chef-recipes/:id/like", authenticateToken, async (req, res) => {
-  try {
-    const recipe = await ChefRecipe.findById(req.params.id);
-    if (!recipe) {
-      return res.status(404).json({
-        success: false,
-        message: "Recipe not found"
-      });
-    }
-
-    const wasLiked = recipe.likes.some(like => like.userId.equals(req.user._id));
-    await recipe.toggleLike(req.user._id);
-
-    // Update chef statistics
-    const chef = await User.findById(recipe.chefId);
-    if (chef) {
-      await chef.updateChefStats();
-    }
-
-    res.json({
-      success: true,
-      message: wasLiked ? "Recipe unliked" : "Recipe liked",
-      liked: !wasLiked,
-      likesCount: recipe.likesCount
-    });
-  } catch (error) {
-    console.error("Error liking recipe:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error liking recipe"
-    });
-  }
-});
-
-// GET featured recipes
-app.get("/api/chef-recipes/featured", async (req, res) => {
-  try {
-    const limit = parseInt(req.query.limit) || 10;
-    const recipes = await ChefRecipe.findFeatured(limit);
-
-    res.json({
-      success: true,
-      recipes
-    });
-  } catch (error) {
-    console.error("Error fetching featured recipes:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error fetching featured recipes"
-    });
-  }
-});
-
-// GET popular chefs
-app.get("/api/chefs/popular", async (req, res) => {
-  try {
-    const limit = parseInt(req.query.limit) || 10;
-    const chefs = await User.findPopularChefs(limit);
-
-    res.json({
-      success: true,
-      chefs: chefs.map(chef => chef.getChefPublicProfile())
-    });
-  } catch (error) {
-    console.error("Error fetching popular chefs:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error fetching popular chefs"
-    });
-  }
-});
-
-// GET verified chefs
-app.get("/api/chefs/verified", async (req, res) => {
-  try {
-    const { specialties, limit = 20 } = req.query;
-    const options = {
-      limit: parseInt(limit)
-    };
-
-    if (specialties) {
-      options.specialties = specialties.split(',');
-    }
-
-    const chefs = await User.findVerifiedChefs(options);
-
-    res.json({
-      success: true,
-      chefs: chefs.map(chef => chef.getChefPublicProfile())
-    });
-  } catch (error) {
-    console.error("Error fetching verified chefs:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error fetching verified chefs"
-    });
-  }
-});
-
-// GET chef profile by ID
-app.get("/api/chefs/:id", async (req, res) => {
-  try {
-    const chef = await User.findById(req.params.id);
-
-    if (!chef || chef.role !== 'chef') {
-      return res.status(404).json({
-        success: false,
-        message: "Chef not found"
-      });
-    }
-
-    res.json({
-      success: true,
-      chef: chef.getChefPublicProfile()
-    });
-  } catch (error) {
-    console.error("Error fetching chef profile:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error fetching chef profile"
-    });
-  }
-});
-
-// GET chef's public recipes
-app.get("/api/chefs/:id/recipes", async (req, res) => {
-  try {
-    const {
-      page = 1,
-      limit = 20,
-      category,
-      sort = 'newest'
-    } = req.query;
-
-    const options = {
-      limit: parseInt(limit),
-      category,
-      sort: sort === 'popular' ? { views: -1 } : { createdAt: -1 }
-    };
-
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    const recipes = await ChefRecipe.findByChef(req.params.id, options);
-
-    res.json({
-      success: true,
-      recipes
-    });
-  } catch (error) {
-    console.error("Error fetching chef recipes:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error fetching chef recipes"
-    });
-  }
-});
-
-// ===== EXISTING ENDPOINTS (ingredients, recipe generation, meal plans) =====
-
-// GET all ingredients (public endpoint)
+// Get all ingredients (public endpoint)
 app.get("/api/ingredients", async (req, res) => {
   try {
     const ingredients = await Ingredient.find();
@@ -840,12 +261,12 @@ app.get("/api/ingredients", async (req, res) => {
 app.post("/api/generate-recipe", async (req, res) => {
   try {
     const { preferences } = req.body;
-    
+
     // If user wants a chef recipe instead of ingredient-based generation
     if (preferences.mode === 'chef-recipe' && preferences.chefRecipeId) {
       const chefRecipe = await ChefRecipe.findById(preferences.chefRecipeId)
         .populate('chefId', 'name chefProfile');
-      
+
       if (!chefRecipe || !chefRecipe.isPublic || chefRecipe.status !== 'approved') {
         return res.status(404).json({
           success: false,
@@ -861,10 +282,10 @@ app.post("/api/generate-recipe", async (req, res) => {
         title: chefRecipe.title,
         description: chefRecipe.description,
         components: {
-          protein: chefRecipe.ingredients.find(ing => ing.name.toLowerCase().includes('chicken') || ing.name.toLowerCase().includes('beef') || ing.name.toLowerCase().includes('fish'))?.name || 'Protein',
-          vegetable: chefRecipe.ingredients.find(ing => ing.name.toLowerCase().includes('vegetable') || ing.name.toLowerCase().includes('carrot') || ing.name.toLowerCase().includes('broccoli'))?.name || 'Vegetables',
-          carb: chefRecipe.ingredients.find(ing => ing.name.toLowerCase().includes('rice') || ing.name.toLowerCase().includes('pasta') || ing.name.toLowerCase().includes('bread'))?.name || 'Carbohydrate',
-          sauce: 'Chef\'s Special Sauce',
+          protein: chefRecipe.ingredients.find(ing => ing.name.toLowerCase().includes('chicken') || ing.name.toLowerCase().includes('beef') || ing.name.toLowerCase().includes('pork') || ing.name.toLowerCase().includes('fish') || ing.name.toLowerCase().includes('tofu')),
+          vegetable: chefRecipe.ingredients.find(ing => ing.name.toLowerCase().includes('vegetable') || ing.name.toLowerCase().includes('carrot') || ing.name.toLowerCase().includes('onion')),
+          carb: chefRecipe.ingredients.find(ing => ing.name.toLowerCase().includes('rice') || ing.name.toLowerCase().includes('pasta') || ing.name.toLowerCase().includes('bread')),
+          sauce: chefRecipe.ingredients.find(ing => ing.name.toLowerCase().includes('sauce') || ing.name.toLowerCase().includes('oil')),
           cookingMethod: 'Chef\'s Method'
         },
         instructions: chefRecipe.instructions.map(inst => inst.instruction),
@@ -910,7 +331,7 @@ app.post("/api/generate-recipe", async (req, res) => {
       const scoreComponent = (component, userIngredients) => {
         const componentName = component.name.toLowerCase();
         let score = 0;
-        
+
         userIngredients.forEach(ingredient => {
           const ingredientName = ingredient.toLowerCase();
           if (componentName.includes(ingredientName) || ingredientName.includes(componentName)) {
@@ -919,7 +340,7 @@ app.post("/api/generate-recipe", async (req, res) => {
             score += 5; // Word match
           }
         });
-        
+
         return score;
       };
 
@@ -971,11 +392,11 @@ app.post("/api/generate-recipe", async (req, res) => {
       const missingIngredients = [];
 
       allComponents.forEach(component => {
-        const isMatched = userIngredients.some(ingredient => 
-          component.toLowerCase().includes(ingredient.toLowerCase()) || 
+        const isMatched = userIngredients.some(ingredient =>
+          component.toLowerCase().includes(ingredient.toLowerCase()) ||
           ingredient.toLowerCase().includes(component.toLowerCase())
         );
-        
+
         if (isMatched) {
           matchedIngredients.push(component);
         } else {
@@ -1021,15 +442,452 @@ app.post("/api/generate-recipe", async (req, res) => {
   }
 });
 
+// Get all chef recipes (public endpoint)
+app.get("/api/chef-recipes", optionalAuth, async (req, res) => {
+  try {
+    const { page = 1, limit = 20, status, category, sort = 'newest' } = req.query;
+    let query = {};
+
+    if (status) query.status = status;
+    if (category) query.category = category;
+
+    let sortOption = { createdAt: -1 };
+    switch (sort) {
+      case 'oldest':
+        sortOption = { createdAt: 1 };
+        break;
+      case 'popular':
+        sortOption = { views: -1 };
+        break;
+      case 'rating':
+        sortOption = { 'ratings.rating': -1 };
+        break;
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const recipes = await ChefRecipe.find(query)
+      .populate('chefId', 'name email role chefProfile')
+      .sort(sortOption)
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await ChefRecipe.countDocuments(query);
+
+    res.json({
+      success: true,
+      recipes,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(total / parseInt(limit)),
+        totalRecipes: total,
+        hasNext: skip + recipes.length < total,
+        hasPrev: parseInt(page) > 1
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching chef recipes:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error fetching recipes"
+    });
+  }
+});
+
+// GET single chef recipe by ID
+app.get("/api/chef-recipes/:id", optionalAuth, async (req, res) => {
+  try {
+    const recipe = await ChefRecipe.findById(req.params.id)
+      .populate('chefId', 'name email role chefProfile');
+
+    if (!recipe) {
+      return res.status(404).json({
+        success: false,
+        message: "Recipe not found"
+      });
+    }
+
+    // Check if recipe is public or user has access
+    if (!recipe.isPublic && !(req.user && (req.user._id.toString() === recipe.chefId._id.toString() || req.user.role === 'admin'))) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied"
+      });
+    }
+
+    // Increment views (but not for the recipe owner)
+    if (req.user && req.user._id.toString() !== recipe.chefId._id.toString()) {
+      await recipe.incrementViews();
+    }
+
+    res.json({
+      success: true,
+      recipe
+    });
+  } catch (error) {
+    console.error("Error fetching recipe:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error fetching recipe"
+    });
+  }
+});
+
+// POST create new chef recipe (chef only)
+app.post("/api/chef-recipes", authenticateToken, requireChef, async (req, res) => {
+  try {
+    const recipeData = {
+      ...req.body,
+      chefId: req.user._id,
+    };
+
+    const newRecipe = new ChefRecipe(recipeData);
+    await newRecipe.save();
+
+    const populatedRecipe = await ChefRecipe.findById(newRecipe._id)
+      .populate('chefId', 'name email role chefProfile');
+
+    // Update chef statistics
+    await req.user.updateChefStats();
+
+    res.status(201).json({
+      success: true,
+      message: "Recipe created successfully",
+      recipe: populatedRecipe
+    });
+  } catch (error) {
+    console.error("Error creating recipe:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error creating recipe",
+      error: error.message
+    });
+  }
+});
+
+// PUT update chef recipe (chef owner only)
+app.put("/api/chef-recipes/:id", authenticateToken, requireChef, async (req, res) => {
+  try {
+    const recipe = await ChefRecipe.findById(req.params.id);
+
+    if (!recipe) {
+      return res.status(404).json({
+        success: false,
+        message: "Recipe not found"
+      });
+    }
+
+    // Check if user owns this recipe
+    if (recipe.chefId.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. You can only edit your own recipes."
+      });
+    }
+
+    // Update recipe fields
+    Object.keys(req.body).forEach(key => {
+      if (key !== 'chefId') { // Prevent changing recipe owner
+        recipe[key] = req.body[key];
+      }
+    });
+
+    // Reset status to pending if content was changed significantly
+    if (req.body.title || req.body.ingredients || req.body.instructions) {
+      recipe.status = 'pending';
+    }
+
+    await recipe.save();
+
+    const populatedRecipe = await ChefRecipe.findById(recipe._id)
+      .populate('chefId', 'name email role chefProfile');
+
+    res.status(200).json({
+      success: true,
+      message: "Recipe updated successfully",
+      recipe: populatedRecipe
+    });
+  } catch (error) {
+    console.error("Error updating recipe:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error updating recipe"
+    });
+  }
+});
+
+// DELETE chef recipe (chef owner only)
+app.delete("/api/chef-recipes/:id", authenticateToken, requireChef, async (req, res) => {
+  try {
+    const recipe = await ChefRecipe.findByIdAndDelete(req.params.id);
+
+    if (!recipe) {
+      return res.status(404).json({
+        success: false,
+        message: "Recipe not found"
+      });
+    }
+
+    // Check if user owns this recipe
+    if (recipe.chefId.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. You can only delete your own recipes."
+      });
+    }
+
+    // Update chef statistics
+    await req.user.updateChefStats();
+
+    res.status(200).json({
+      success: true,
+      message: "Recipe deleted successfully!"
+    });
+  } catch (error) {
+    console.error("Error deleting recipe:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error deleting recipe"
+    });
+  }
+});
+
+// POST rate a chef recipe (authenticated users only)
+app.post("/api/chef-recipes/:id/rate", authenticateToken, async (req, res) => {
+  try {
+    const { rating, review } = req.body;
+
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({
+        success: false,
+        message: "Rating must be between 1 and 5"
+      });
+    }
+
+    const recipe = await ChefRecipe.findById(req.params.id);
+
+    if (!recipe) {
+      return res.status(404).json({
+        success: false,
+        message: "Recipe not found"
+      });
+    }
+
+    // Prevent chef from rating their own recipe
+    if (recipe.chefId.toString() === req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "You cannot rate your own recipe"
+      });
+    }
+
+    await recipe.addRating(req.user._id, rating, review);
+
+    // Update chef statistics
+    const chef = await User.findById(recipe.chefId);
+    if (chef) {
+      await chef.updateChefStats();
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Recipe rated successfully!",
+      averageRating: recipe.averageRating,
+      ratingsCount: recipe.ratingsCount
+    });
+  } catch (error) {
+    console.error("Error rating recipe:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error rating recipe"
+    });
+  }
+});
+
+// POST like/unlike a chef recipe (authenticated users only)
+app.post("/api/chef-recipes/:id/like", authenticateToken, async (req, res) => {
+  try {
+    const recipe = await ChefRecipe.findById(req.params.id);
+
+    if (!recipe) {
+      return res.status(404).json({
+        success: false,
+        message: "Recipe not found"
+      });
+    }
+
+    const wasLiked = recipe.likes.some(like => like.userId.equals(req.user._id));
+    await recipe.toggleLike(req.user._id);
+
+    // Update chef statistics
+    const chef = await User.findById(recipe.chefId);
+    if (chef) {
+      await chef.updateChefStats();
+    }
+
+    res.status(200).json({
+      success: true,
+      message: wasLiked ? "Recipe unliked" : "Recipe liked",
+      liked: !wasLiked,
+      likesCount: recipe.likesCount
+    });
+  } catch (error) {
+    console.error("Error liking recipe:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error liking recipe"
+    });
+  }
+});
+
+// GET featured recipes
+app.get("/api/chef-recipes/featured", async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
+    const recipes = await ChefRecipe.findFeatured(limit);
+    res.json({
+      success: true,
+      recipes
+    });
+  } catch (error) {
+    console.error("Error fetching featured recipes:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error fetching featured recipes"
+    });
+  }
+});
+
+// GET popular chefs
+app.get("/api/chefs/popular", async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
+    const chefs = await User.findPopularChefs(limit);
+    res.json({
+      success: true,
+      chefs: chefs.map(chef => chef.getChefPublicProfile())
+    });
+  } catch (error) {
+    console.error("Error fetching popular chefs:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error fetching popular chefs"
+    });
+  }
+});
+
+// GET verified chefs
+app.get("/api/chefs/verified", async (req, res) => {
+  try {
+    const { specialties, limit = 20 } = req.query;
+    const options = {
+      limit: parseInt(limit)
+    };
+
+    if (specialties) {
+      options.specialties = specialties.split(',');
+    }
+
+    const chefs = await User.findVerifiedChefs(options);
+    res.json({
+      success: true,
+      chefs: chefs.map(chef => chef.getChefPublicProfile())
+    });
+  } catch (error) {
+    console.error("Error fetching verified chefs:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error fetching verified chefs"
+    });
+  }
+});
+
+// GET chef profile by ID
+app.get("/api/chefs/:id", async (req, res) => {
+  try {
+    const chef = await User.findById(req.params.id);
+
+    if (!chef || chef.role !== 'chef') {
+      return res.status(404).json({
+        success: false,
+        message: "Chef not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      chef: chef.getChefPublicProfile()
+    });
+  } catch (error) {
+    console.error("Error fetching chef profile:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error fetching chef profile"
+    });
+  }
+});
+
+// GET chef's public recipes
+app.get("/api/chefs/:id/recipes", async (req, res) => {
+  try {
+    const { page = 1, limit = 20, category, sort = 'newest' } = req.query;
+    let query = { chefId: req.params.id, isPublic: true, status: 'approved' };
+
+    if (category) query.category = category;
+
+    let sortOption = { createdAt: -1 };
+    switch (sort) {
+      case 'oldest':
+        sortOption = { createdAt: 1 };
+        break;
+      case 'popular':
+        sortOption = { views: -1 };
+        break;
+      case 'rating':
+        sortOption = { 'ratings.rating': -1 };
+        break;
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const recipes = await ChefRecipe.find(query)
+      .populate('chefId', 'name email role chefProfile')
+      .sort(sortOption)
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await ChefRecipe.countDocuments(query);
+
+    res.json({
+      success: true,
+      recipes,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(total / parseInt(limit)),
+        totalRecipes: total,
+        hasNext: skip + recipes.length < total,
+        hasPrev: parseInt(page) > 1
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching chef's recipes:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error fetching your recipes"
+    });
+  }
+});
+
 // GET meal plans (protected - user's own meal plans)
 app.get("/api/meal-plans", authenticateToken, async (req, res) => {
   try {
     const mealPlans = await MealPlan.find({ userId: req.user._id })
       .populate({
         path: 'meals',
-        options: { sort: { scheduledDate: 1 } }
+        populate: {
+          path: 'recipeId',
+          model: 'ChefRecipe'
+        }
       })
-      .sort({ createdAt: -1 });
+      .sort({ scheduledDate: 1 });
 
     res.json(mealPlans);
   } catch (err) {
@@ -1047,21 +905,21 @@ app.post("/api/meal-plans", authenticateToken, async (req, res) => {
       return res.status(400).json({ message: "Meal plan name is required." });
     }
 
-    const mealPlan = new MealPlan({
+    const newMealPlan = new MealPlan({
       name: name.trim(),
       description,
       planType,
-      userId: req.user._id
+      userId: req.user._id,
     });
 
-    await mealPlan.save();
+    await newMealPlan.save();
 
     // Add meal plan to user's meal plans
     await User.findByIdAndUpdate(req.user._id, {
-      $push: { mealPlans: mealPlan._id }
+      $push: { mealPlans: newMealPlan._id }
     });
 
-    res.status(201).json(mealPlan);
+    res.status(201).json(newMealPlan);
   } catch (err) {
     console.error("Error creating meal plan:", err.message);
     res.status(500).send("Server Error creating meal plan");
@@ -1072,24 +930,24 @@ app.post("/api/meal-plans", authenticateToken, async (req, res) => {
 app.post("/api/meal-plans/:planId/add-recipe", authenticateToken, async (req, res) => {
   try {
     const { planId } = req.params;
-    const { recipeDetails, mealType = "dinner" } = req.body;
+    const { recipeId, mealType = "dinner" } = req.body;
 
-    // Verify meal plan belongs to user
+    if (!recipeId) {
+      return res.status(400).json({ message: "Recipe ID is required." });
+    }
+
     const mealPlan = await MealPlan.findOne({ _id: planId, userId: req.user._id });
+
     if (!mealPlan) {
       return res.status(404).json({ message: "Meal plan not found or access denied." });
     }
 
-    if (!recipeDetails || !recipeDetails.title) {
-      return res.status(400).json({ message: "Recipe details are required." });
-    }
-
     const newMeal = new Meal({
-      recipeTitle: recipeDetails.title,
-      recipeDetails: recipeDetails,
-      mealType: mealType || "dinner",
-      userId: req.user._id
+      recipeId,
+      mealType,
+      userId: req.user._id,
     });
+
     await newMeal.save();
 
     mealPlan.meals.push(newMeal._id);
@@ -1102,15 +960,51 @@ app.post("/api/meal-plans/:planId/add-recipe", authenticateToken, async (req, re
   }
 });
 
+// POST remove recipe from meal plan (protected)
+app.post("/api/meal-plans/:planId/remove-recipe", authenticateToken, async (req, res) => {
+  try {
+    const { planId } = req.params;
+    const { recipeId } = req.body;
+
+    const mealPlan = await MealPlan.findOne({ _id: planId, userId: req.user._id });
+
+    if (!mealPlan) {
+      return res.status(404).json({ message: "Meal plan not found or access denied." });
+    }
+
+    // Find the meal entry to remove
+    const mealToRemove = await Meal.findOne({ recipeId, _id: { $in: mealPlan.meals } });
+
+    if (!mealToRemove) {
+      return res.status(404).json({ message: "Recipe not found in this meal plan." });
+    }
+
+    // Remove from meal plan's meals array
+    mealPlan.meals = mealPlan.meals.filter(mealId => !mealId.equals(mealToRemove._id));
+    await mealPlan.save();
+
+    // Delete the meal entry itself
+    await Meal.findByIdAndDelete(mealToRemove._id);
+
+    res.status(200).json({ message: "Recipe removed from meal plan successfully!", mealPlan });
+  } catch (err) {
+    console.error("Error removing recipe from meal plan:", err.message);
+    res.status(500).send("Server Error removing recipe from meal plan");
+  }
+});
+
 // DELETE meal plan (protected)
 app.delete("/api/meal-plans/:planId", authenticateToken, async (req, res) => {
   try {
     const { planId } = req.params;
-    
-    // Verify meal plan belongs to user
+
     const mealPlan = await MealPlan.findOne({ _id: planId, userId: req.user._id });
+
     if (!mealPlan) {
-      return res.status(404).json({ message: "Meal plan not found or access denied." });
+      return res.status(404).json({
+        success: false,
+        message: "Meal plan not found or access denied."
+      });
     }
 
     // Delete all associated meals
@@ -1126,9 +1020,12 @@ app.delete("/api/meal-plans/:planId", authenticateToken, async (req, res) => {
     // Delete the meal plan
     await MealPlan.findByIdAndDelete(planId);
 
-    res.status(200).json({ message: "Meal plan deleted successfully!" });
-  } catch (err) {
-    console.error("Error deleting meal plan:", err.message);
+    res.status(200).json({
+      success: true,
+      message: "Meal plan deleted successfully!"
+    });
+  } catch (error) {
+    console.error("Error deleting meal plan:", error);
     res.status(500).send("Server Error deleting meal plan");
   }
 });
@@ -1136,5 +1033,5 @@ app.delete("/api/meal-plans/:planId", authenticateToken, async (req, res) => {
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log("🧠 Smart DishCraft API with Chef Recipes is ready!");
+  console.log(`Smart DishCraft API with Chef Recipes is ready!`);
 });
