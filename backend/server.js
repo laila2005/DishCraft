@@ -4,8 +4,8 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const Ingredient = require("./models/Ingredient");
 const RecipeComponent = require("./models/RecipeComponent");
-const Meal = require("./models/Meal"); // Import Meal model
-const MealPlan = require("./models/MealPlan"); // Import MealPlan model
+const Meal = require("./models/Meal");
+const MealPlan = require("./models/MealPlan");
 
 dotenv.config();
 
@@ -14,8 +14,6 @@ const PORT = process.env.PORT || 5000;
 
 // CORS Configuration
 app.use(cors());
-
-// Middleware to parse JSON bodies
 app.use(express.json());
 
 // Connect to MongoDB
@@ -41,7 +39,6 @@ app.use((err, req, res, next) => {
 const generateInstructions = (protein, vegetable, carb, sauce, cookingMethod) => {
   const instructions = [];
   
-  // Basic instruction templates based on cooking method
   switch (cookingMethod.toLowerCase()) {
     case 'bake/roast':
     case 'bake':
@@ -146,11 +143,119 @@ const determineDifficulty = (cookingMethod) => {
   }
 };
 
-// --- API Endpoints ---
+// SMART INGREDIENT MATCHING ALGORITHM
+const findBestRecipeMatch = async (userIngredients, preferences) => {
+  try {
+    const [proteins, vegetables, carbs, sauces, methods] = await Promise.all([
+      RecipeComponent.find({ type: "protein" }),
+      RecipeComponent.find({ type: "vegetable" }),
+      RecipeComponent.find({ type: "carb" }),
+      RecipeComponent.find({ type: "sauce_base" }),
+      RecipeComponent.find({ type: "cooking_method" })
+    ]);
+
+    // Score components based on user ingredients
+    const scoreComponent = (components, userIngredients) => {
+      return components.map(component => {
+        let score = 0;
+        let matchedIngredients = [];
+        
+        const componentName = component.name.toLowerCase();
+        userIngredients.forEach(userIng => {
+          const userIngName = userIng.toLowerCase();
+          
+          // Exact match (10 points)
+          if (componentName.includes(userIngName) || userIngName.includes(componentName)) {
+            score += 10;
+            matchedIngredients.push(userIng);
+          }
+          // Partial match (5 points)
+          else if (componentName.split(' ').some(word => userIngName.includes(word)) ||
+                   userIngName.split(' ').some(word => componentName.includes(word))) {
+            score += 5;
+            matchedIngredients.push(userIng);
+          }
+        });
+        
+        return { component, score, matchedIngredients };
+      }).sort((a, b) => b.score - a.score);
+    };
+
+    // Score all component types
+    const scoredProteins = scoreComponent(proteins, userIngredients);
+    const scoredVegetables = scoreComponent(vegetables, userIngredients);
+    const scoredCarbs = scoreComponent(carbs, userIngredients);
+    const scoredSauces = scoreComponent(sauces, userIngredients);
+
+    // Select best matches (prefer user ingredients, fallback to random)
+    const selectedProtein = scoredProteins[0].score > 0 ? 
+      scoredProteins[0].component : 
+      proteins[Math.floor(Math.random() * proteins.length)];
+    
+    const selectedVegetable = scoredVegetables[0].score > 0 ? 
+      scoredVegetables[0].component : 
+      vegetables[Math.floor(Math.random() * vegetables.length)];
+    
+    const selectedCarb = scoredCarbs[0].score > 0 ? 
+      scoredCarbs[0].component : 
+      carbs[Math.floor(Math.random() * carbs.length)];
+    
+    const selectedSauce = scoredSauces[0].score > 0 ? 
+      scoredSauces[0].component : 
+      sauces[Math.floor(Math.random() * sauces.length)];
+
+    const selectedMethod = methods[Math.floor(Math.random() * methods.length)];
+
+    // Calculate match statistics
+    const totalScore = scoredProteins[0].score + scoredVegetables[0].score + 
+                      scoredCarbs[0].score + scoredSauces[0].score;
+    
+    const allMatchedIngredients = [
+      ...scoredProteins[0].matchedIngredients,
+      ...scoredVegetables[0].matchedIngredients,
+      ...scoredCarbs[0].matchedIngredients,
+      ...scoredSauces[0].matchedIngredients
+    ];
+    
+    const requiredIngredients = [
+      selectedProtein.name,
+      selectedVegetable.name,
+      selectedCarb.name,
+      selectedSauce.name
+    ];
+    
+    const missingIngredients = requiredIngredients.filter(req => 
+      !userIngredients.some(userIng => 
+        req.toLowerCase().includes(userIng.toLowerCase()) || 
+        userIng.toLowerCase().includes(req.toLowerCase())
+      )
+    );
+
+    return {
+      selectedProtein,
+      selectedVegetable,
+      selectedCarb,
+      selectedSauce,
+      selectedMethod,
+      matchInfo: {
+        totalScore,
+        matchedCount: allMatchedIngredients.length,
+        totalRequired: requiredIngredients.length,
+        missingIngredients: missingIngredients.length > 0 ? missingIngredients : null,
+        matchedIngredients: allMatchedIngredients
+      }
+    };
+  } catch (error) {
+    console.error('Error in findBestRecipeMatch:', error);
+    throw error;
+  }
+};
+
+// --- API ENDPOINTS ---
 
 // Root endpoint
 app.get("/", (req, res) => {
-  res.send("Welcome to DishCraft API!");
+  res.send("Welcome to DishCraft API - Enhanced with Smart Ingredient Matching!");
 });
 
 // GET all ingredients
@@ -164,53 +269,59 @@ app.get("/api/ingredients", async (req, res) => {
   }
 });
 
-// POST generate recipe
+// POST generate recipe - ENHANCED WITH SMART MATCHING
 app.post("/api/generate-recipe", async (req, res) => {
   try {
     const { preferences } = req.body;
+    const { mode, userIngredients, dietary, cuisine, protein } = preferences || {};
 
-    // --- Enhanced Recipe Generation Logic (Rule-Based) ---
+    console.log('Recipe generation request:', { mode, userIngredients: userIngredients?.length, dietary, cuisine });
 
-    // 1. Select a protein (e.g., based on preference or random)
-    const proteinOptions = await RecipeComponent.find({ type: "protein" });
-    if (proteinOptions.length === 0) {
-      return res.status(500).json({ error: "No protein options available in database" });
+    let selectedComponents;
+    let matchInfo = null;
+
+    if (mode === 'ingredients' && userIngredients && userIngredients.length > 0) {
+      // SMART INGREDIENT-BASED GENERATION
+      console.log('Using smart ingredient matching with:', userIngredients);
+      selectedComponents = await findBestRecipeMatch(userIngredients, preferences);
+      matchInfo = selectedComponents.matchInfo;
+    } else {
+      // RANDOM RECIPE GENERATION
+      console.log('Using random recipe generation');
+      const [proteinOptions, vegetableOptions, carbOptions, sauceOptions, methodOptions] = await Promise.all([
+        RecipeComponent.find({ type: "protein" }),
+        RecipeComponent.find({ type: "vegetable" }),
+        RecipeComponent.find({ type: "carb" }),
+        RecipeComponent.find({ type: "sauce_base" }),
+        RecipeComponent.find({ type: "cooking_method" })
+      ]);
+
+      if (!proteinOptions.length || !vegetableOptions.length || !carbOptions.length || 
+          !sauceOptions.length || !methodOptions.length) {
+        return res.status(500).json({ error: "Insufficient recipe components in database" });
+      }
+
+      selectedComponents = {
+        selectedProtein: proteinOptions[Math.floor(Math.random() * proteinOptions.length)],
+        selectedVegetable: vegetableOptions[Math.floor(Math.random() * vegetableOptions.length)],
+        selectedCarb: carbOptions[Math.floor(Math.random() * carbOptions.length)],
+        selectedSauce: sauceOptions[Math.floor(Math.random() * sauceOptions.length)],
+        selectedMethod: methodOptions[Math.floor(Math.random() * methodOptions.length)]
+      };
     }
-    const selectedProtein = proteinOptions[Math.floor(Math.random() * proteinOptions.length)];
 
-    // 2. Select a vegetable
-    const vegetableOptions = await RecipeComponent.find({ type: "vegetable" });
-    if (vegetableOptions.length === 0) {
-      return res.status(500).json({ error: "No vegetable options available in database" });
-    }
-    const selectedVegetable = vegetableOptions[Math.floor(Math.random() * vegetableOptions.length)];
+    const { selectedProtein, selectedVegetable, selectedCarb, selectedSauce, selectedMethod } = selectedComponents;
 
-    // 3. Select a carb
-    const carbOptions = await RecipeComponent.find({ type: "carb" });
-    if (carbOptions.length === 0) {
-      return res.status(500).json({ error: "No carb options available in database" });
-    }
-    const selectedCarb = carbOptions[Math.floor(Math.random() * carbOptions.length)];
+    // Generate smart recipe title and description
+    const title = mode === 'ingredients' && matchInfo?.matchedCount > 0 ?
+      `Custom ${selectedMethod.name} ${selectedProtein.name} with ${selectedVegetable.name}` :
+      `${selectedMethod.name} ${selectedProtein.name} with ${selectedVegetable.name}`;
 
-    // 4. Select a sauce/flavor profile
-    const sauceOptions = await RecipeComponent.find({ type: "sauce_base" });
-    if (sauceOptions.length === 0) {
-      return res.status(500).json({ error: "No sauce options available in database" });
-    }
-    const selectedSauce = sauceOptions[Math.floor(Math.random() * sauceOptions.length)];
+    const description = mode === 'ingredients' ?
+      `A personalized recipe created using your available ingredients. This ${selectedMethod.name.toLowerCase()} recipe makes great use of what you have in your kitchen!` :
+      `A delicious and nutritious ${selectedMethod.name.toLowerCase()} recipe featuring ${selectedProtein.name.toLowerCase()}, ${selectedVegetable.name.toLowerCase()}, and ${selectedCarb.name.toLowerCase()}, all brought together with ${selectedSauce.name.toLowerCase()}.`;
 
-    // 5. Select a cooking method
-    const methodOptions = await RecipeComponent.find({ type: "cooking_method" });
-    if (methodOptions.length === 0) {
-      return res.status(500).json({ error: "No cooking method options available in database" });
-    }
-    const selectedMethod = methodOptions[Math.floor(Math.random() * methodOptions.length)];
-
-    // Construct a simple title and description
-    const title = `${selectedMethod.name} ${selectedProtein.name} with ${selectedVegetable.name}`;
-    const description = `A delicious and nutritious ${selectedMethod.name.toLowerCase()} recipe featuring ${selectedProtein.name.toLowerCase()}, ${selectedVegetable.name.toLowerCase()}, and ${selectedCarb.name.toLowerCase()}, all brought together with ${selectedSauce.name.toLowerCase()}.`;
-
-    // Generate instructions using our helper function
+    // Generate detailed instructions
     const instructions = generateInstructions(
       selectedProtein.name,
       selectedVegetable.name,
@@ -218,10 +329,6 @@ app.post("/api/generate-recipe", async (req, res) => {
       selectedSauce.name,
       selectedMethod.name
     );
-
-    // Estimate cooking time and difficulty
-    const cookingTime = estimateCookingTime(selectedMethod.name);
-    const difficulty = determineDifficulty(selectedMethod.name);
 
     const generatedRecipe = {
       title,
@@ -234,23 +341,36 @@ app.post("/api/generate-recipe", async (req, res) => {
         cookingMethod: selectedMethod.name,
       },
       instructions,
-      cookingTime,
-      difficulty,
-      servings: 4, // Default serving size
-      prepTime: "10-15 minutes", // Estimated prep time
+      cookingTime: estimateCookingTime(selectedMethod.name),
+      difficulty: determineDifficulty(selectedMethod.name),
+      servings: 4,
+      prepTime: "10-15 minutes",
+      // Include ingredient match information for smart recipes
+      ...(matchInfo && {
+        ingredientMatch: {
+          matchedCount: matchInfo.matchedCount,
+          totalRequired: matchInfo.totalRequired,
+          missingIngredients: matchInfo.missingIngredients,
+          matchScore: Math.round((matchInfo.matchedCount / matchInfo.totalRequired) * 100)
+        }
+      })
     };
+
+    console.log('Generated recipe:', { 
+      title, 
+      mode, 
+      matchInfo: matchInfo ? `${matchInfo.matchedCount}/${matchInfo.totalRequired}` : 'N/A' 
+    });
 
     res.json(generatedRecipe);
   } catch (err) {
     console.error("Error generating recipe:", err.message);
     console.error(err.stack);
-    res.status(500).send("Server Error generating recipe");
+    res.status(500).json({ error: "Server Error generating recipe", details: err.message });
   }
 });
 
-// --- Meal Plan API Endpoints ---
-
-// POST create a new meal plan
+// MEAL PLAN ENDPOINTS (unchanged)
 app.post("/api/meal-plans", async (req, res) => {
   try {
     const { name } = req.body;
@@ -266,10 +386,9 @@ app.post("/api/meal-plans", async (req, res) => {
   }
 });
 
-// GET all meal plans
 app.get("/api/meal-plans", async (req, res) => {
   try {
-    const mealPlans = await MealPlan.find().populate("meals"); // Populate meals for full details
+    const mealPlans = await MealPlan.find().populate("meals");
     res.json(mealPlans);
   } catch (err) {
     console.error("Error fetching meal plans:", err.message);
@@ -277,7 +396,6 @@ app.get("/api/meal-plans", async (req, res) => {
   }
 });
 
-// POST add a generated recipe to a meal plan
 app.post("/api/meal-plans/:planId/add-recipe", async (req, res) => {
   try {
     const { planId } = req.params;
@@ -294,8 +412,8 @@ app.post("/api/meal-plans/:planId/add-recipe", async (req, res) => {
 
     const newMeal = new Meal({
       recipeTitle: recipeDetails.title,
-      recipeDetails: recipeDetails, // Store the full recipe object
-      mealType: mealType || "dinner", // Default to dinner if not provided
+      recipeDetails: recipeDetails,
+      mealType: mealType || "dinner",
     });
     await newMeal.save();
 
@@ -309,7 +427,6 @@ app.post("/api/meal-plans/:planId/add-recipe", async (req, res) => {
   }
 });
 
-// DELETE a meal plan
 app.delete("/api/meal-plans/:planId", async (req, res) => {
   try {
     const { planId } = req.params;
@@ -319,12 +436,10 @@ app.delete("/api/meal-plans/:planId", async (req, res) => {
       return res.status(404).json({ message: "Meal plan not found." });
     }
 
-    // Delete all associated meals
     if (mealPlan.meals && mealPlan.meals.length > 0) {
       await Meal.deleteMany({ _id: { $in: mealPlan.meals } });
     }
 
-    // Delete the meal plan
     await MealPlan.findByIdAndDelete(planId);
 
     res.status(200).json({ message: "Meal plan deleted successfully!" });
@@ -337,4 +452,5 @@ app.delete("/api/meal-plans/:planId", async (req, res) => {
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log("🧠 Smart DishCraft API with Ingredient Matching is ready!");
 });
