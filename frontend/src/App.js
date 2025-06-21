@@ -1,9 +1,12 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import AuthForms from './components/AuthForms';
 import './App.css';
 
-function App() {
-  // State for ingredients and recipe generation
+// Main App Component (wrapped with authentication)
+function AppContent() {
+  // Existing state for ingredients and recipe generation
   const [ingredients, setIngredients] = useState([]);
   const [loadingIngredients, setLoadingIngredients] = useState(true);
   const [errorIngredients, setErrorIngredients] = useState(null);
@@ -26,11 +29,20 @@ function App() {
   const [selectedMealPlanId, setSelectedMealPlanId] = useState('');
   const [selectedMealType, setSelectedMealType] = useState('dinner');
 
-  // Your Render backend URL
-  const BACKEND_URL = 'https://dishcraft-backend-3tk2.onrender.com'; 
+  // Authentication state
+  const [showAuthForms, setShowAuthForms] = useState(false);
+  const { user, logout, isAuthenticated, loading: authLoading } = useAuth();
 
-  // Function to fetch meal plans
-  const fetchMealPlans = useCallback(async ( ) => {
+  // Backend URL
+  const BACKEND_URL = 'https://dishcraft-backend-3tk2.onrender.com';
+
+  // Function to fetch meal plans (now requires authentication )
+  const fetchMealPlans = useCallback(async () => {
+    if (!isAuthenticated) {
+      setMealPlans([]);
+      return;
+    }
+
     setLoadingMealPlans(true);
     setErrorMealPlans(null);
     try {
@@ -42,12 +54,16 @@ function App() {
       setLoadingMealPlans(false);
     } catch (err) {
       console.error('Error fetching meal plans:', err);
-      setErrorMealPlans('Failed to load meal plans.');
+      if (err.response?.status === 401) {
+        setErrorMealPlans('Please log in to view your meal plans.');
+      } else {
+        setErrorMealPlans('Failed to load meal plans.');
+      }
       setLoadingMealPlans(false);
     }
-  }, [BACKEND_URL, selectedMealPlanId]);
+  }, [BACKEND_URL, selectedMealPlanId, isAuthenticated]);
 
-  // Fetch ingredients on component mount (for autocomplete only)
+  // Fetch ingredients on component mount (public endpoint)
   useEffect(() => {
     const fetchIngredients = async () => {
       try {
@@ -63,10 +79,12 @@ function App() {
     fetchIngredients();
   }, [BACKEND_URL]);
 
-  // Fetch meal plans on component mount
+  // Fetch meal plans when authentication status changes
   useEffect(() => {
-    fetchMealPlans();
-  }, [fetchMealPlans]);
+    if (!authLoading) {
+      fetchMealPlans();
+    }
+  }, [fetchMealPlans, authLoading]);
 
   // Filter ingredients based on user input
   useEffect(() => {
@@ -131,8 +149,14 @@ function App() {
     }
   };
 
-  // Function to create a new meal plan
+  // Function to create a new meal plan (requires authentication)
   const createMealPlan = async () => {
+    if (!isAuthenticated) {
+      alert('Please log in to create meal plans.');
+      setShowAuthForms(true);
+      return;
+    }
+
     if (!newMealPlanName.trim()) {
       alert('Please enter a name for the meal plan.');
       return;
@@ -145,12 +169,23 @@ function App() {
       alert('Meal plan created successfully!');
     } catch (err) {
       console.error('Error creating meal plan:', err);
-      alert('Failed to create meal plan.');
+      if (err.response?.status === 401) {
+        alert('Please log in to create meal plans.');
+        setShowAuthForms(true);
+      } else {
+        alert('Failed to create meal plan.');
+      }
     }
   };
 
-  // Function to add generated recipe to selected meal plan
+  // Function to add generated recipe to selected meal plan (requires authentication)
   const addRecipeToPlan = async () => {
+    if (!isAuthenticated) {
+      alert('Please log in to save recipes to meal plans.');
+      setShowAuthForms(true);
+      return;
+    }
+
     if (!generatedRecipe) {
       alert('Please generate a recipe first.');
       return;
@@ -168,12 +203,19 @@ function App() {
       fetchMealPlans();
     } catch (err) {
       console.error('Error adding recipe to meal plan:', err);
-      alert('Failed to add recipe to meal plan.');
+      if (err.response?.status === 401) {
+        alert('Please log in to save recipes.');
+        setShowAuthForms(true);
+      } else {
+        alert('Failed to add recipe to meal plan.');
+      }
     }
   };
 
-  // Function to delete a meal plan
+  // Function to delete a meal plan (requires authentication)
   const deleteMealPlan = async (planId) => {
+    if (!isAuthenticated) return;
+
     if (window.confirm('Are you sure you want to delete this meal plan?')) {
       try {
         await axios.delete(`${BACKEND_URL}/api/meal-plans/${planId}`);
@@ -189,14 +231,62 @@ function App() {
     }
   };
 
+  // Show loading while checking authentication
+  if (authLoading) {
+    return (
+      <div className="App">
+        <div className="loading-screen">
+          <h2>🍳 Loading DishCraft...</h2>
+          <p>Preparing your kitchen assistant...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="App">
       <header className="App-header">
-        <h1>🧑‍🍳 DishCraft</h1>
-        <p>Smart Kitchen Assistant - Create recipes from your ingredients</p>
+        <div className="header-content">
+          <div className="header-left">
+            <h1>🧑‍🍳 DishCraft</h1>
+            <p>Smart Kitchen Assistant - Create recipes from your ingredients</p>
+          </div>
+          
+          <div className="header-right">
+            {isAuthenticated ? (
+              <div className="user-menu">
+                <span className="welcome-text">👋 Welcome, {user.name}!</span>
+                <button onClick={logout} className="logout-btn">
+                  🚪 Logout
+                </button>
+              </div>
+            ) : (
+              <button 
+                onClick={() => setShowAuthForms(true)} 
+                className="login-btn"
+              >
+                🔐 Login / Sign Up
+              </button>
+            )}
+          </div>
+        </div>
       </header>
 
       <main>
+        {/* Authentication Notice for Non-Authenticated Users */}
+        {!isAuthenticated && (
+          <div className="auth-notice">
+            <h3>🎉 Welcome to DishCraft!</h3>
+            <p>Create an account to save your meal plans and access personalized features.</p>
+            <button 
+              onClick={() => setShowAuthForms(true)} 
+              className="auth-notice-btn"
+            >
+              Get Started - It's Free! 🚀
+            </button>
+          </div>
+        )}
+
         {/* Main Ingredient Input Section */}
         <section className="ingredient-input-section">
           <h2>🥘 What's in Your Kitchen?</h2>
@@ -318,126 +408,170 @@ function App() {
                 </ol>
               </div>
 
-              {/* Add to Meal Plan Section */}
-              <div className="add-to-plan-section">
-                <h4>📅 Add to Meal Plan</h4>
-                <div className="meal-plan-controls">
-                  <select 
-                    value={selectedMealPlanId} 
-                    onChange={(e) => setSelectedMealPlanId(e.target.value)} 
-                    disabled={mealPlans.length === 0}
-                    className="meal-plan-select"
-                  >
-                    {mealPlans.length === 0 ? (
-                      <option value="">No meal plans available</option>
-                    ) : (
-                      mealPlans.map(plan => (
-                        <option key={plan._id} value={plan._id}>{plan.name}</option>
-                      ))
-                    )}
-                  </select>
-                  
-                  <select 
-                    value={selectedMealType} 
-                    onChange={(e) => setSelectedMealType(e.target.value)}
-                    className="meal-type-select"
-                  >
-                    <option value="breakfast">🌅 Breakfast</option>
-                    <option value="lunch">☀️ Lunch</option>
-                    <option value="dinner">🌙 Dinner</option>
-                    <option value="snack">🍿 Snack</option>
-                  </select>
-                  
+              {/* Add to Meal Plan Section - Only show if authenticated */}
+              {isAuthenticated && (
+                <div className="add-to-plan-section">
+                  <h4>📅 Add to Meal Plan</h4>
+                  <div className="meal-plan-controls">
+                    <select 
+                      value={selectedMealPlanId} 
+                      onChange={(e) => setSelectedMealPlanId(e.target.value)} 
+                      disabled={mealPlans.length === 0}
+                      className="meal-plan-select"
+                    >
+                      {mealPlans.length === 0 ? (
+                        <option value="">No meal plans available</option>
+                      ) : (
+                        mealPlans.map(plan => (
+                          <option key={plan._id} value={plan._id}>{plan.name}</option>
+                        ))
+                      )}
+                    </select>
+                    
+                    <select 
+                      value={selectedMealType} 
+                      onChange={(e) => setSelectedMealType(e.target.value)}
+                      className="meal-type-select"
+                    >
+                      <option value="breakfast">🌅 Breakfast</option>
+                      <option value="lunch">☀️ Lunch</option>
+                      <option value="dinner">🌙 Dinner</option>
+                      <option value="snack">🍿 Snack</option>
+                    </select>
+                    
+                    <button 
+                      onClick={addRecipeToPlan} 
+                      disabled={!generatedRecipe || !selectedMealPlanId}
+                      className="add-recipe-btn"
+                    >
+                      ➕ Add to Plan
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Login prompt for non-authenticated users */}
+              {!isAuthenticated && (
+                <div className="login-prompt">
+                  <p>💡 <strong>Want to save this recipe?</strong></p>
                   <button 
-                    onClick={addRecipeToPlan} 
-                    disabled={!generatedRecipe || !selectedMealPlanId}
-                    className="add-recipe-btn"
+                    onClick={() => setShowAuthForms(true)}
+                    className="login-prompt-btn"
                   >
-                    ➕ Add to Plan
+                    🔐 Login to Save Recipes
                   </button>
                 </div>
-              </div>
+              )}
             </div>
           )}
         </section>
 
         <hr />
 
-        {/* Meal Planning Section */}
+        {/* Meal Planning Section - Enhanced for Authentication */}
         <section className="meal-planning-section">
           <h2>📅 My Meal Plans</h2>
           
-          <div className="create-meal-plan-form">
-            <input 
-              type="text" 
-              value={newMealPlanName} 
-              onChange={(e) => setNewMealPlanName(e.target.value)} 
-              placeholder="Enter meal plan name (e.g., 'This Week's Meals')"
-              className="meal-plan-input"
-            />
-            <button onClick={createMealPlan} className="create-plan-btn">
-              ➕ Create Meal Plan
-            </button>
-          </div>
+          {isAuthenticated ? (
+            <>
+              <div className="create-meal-plan-form">
+                <input 
+                  type="text" 
+                  value={newMealPlanName} 
+                  onChange={(e) => setNewMealPlanName(e.target.value)} 
+                  placeholder="Enter meal plan name (e.g., 'This Week's Meals')"
+                  className="meal-plan-input"
+                />
+                <button onClick={createMealPlan} className="create-plan-btn">
+                  ➕ Create Meal Plan
+                </button>
+              </div>
 
-          {loadingMealPlans && <p className="loading-message">Loading meal plans...</p>}
-          {errorMealPlans && <p className="error-message">❌ Error: {errorMealPlans}</p>}
-          
-          {mealPlans.length === 0 && !loadingMealPlans && (
-            <div className="empty-state">
-              <p>📝 You don't have any meal plans yet.</p>
-              <p>Create your first meal plan above to get started!</p>
+              {loadingMealPlans && <p className="loading-message">Loading meal plans...</p>}
+              {errorMealPlans && <p className="error-message">❌ Error: {errorMealPlans}</p>}
+              
+              {mealPlans.length === 0 && !loadingMealPlans && (
+                <div className="empty-state">
+                  <p>📝 You don't have any meal plans yet.</p>
+                  <p>Create your first meal plan above to get started!</p>
+                </div>
+              )}
+
+              <div className="meal-plans-grid">
+                {mealPlans.map(plan => (
+                  <div key={plan._id} className="meal-plan-card">
+                    <div className="meal-plan-header">
+                      <h3>📋 {plan.name}</h3>
+                      <button 
+                        onClick={() => deleteMealPlan(plan._id)}
+                        className="delete-plan-btn"
+                        title="Delete meal plan"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                    
+                    <div className="meal-plan-content">
+                      {plan.meals && plan.meals.length > 0 ? (
+                        <ul className="meals-list">
+                          {plan.meals.map(meal => (
+                            <li key={meal._id} className="meal-item">
+                              <div className="meal-info">
+                                <span className="meal-title">🍽️ {meal.recipeTitle}</span>
+                                <span className="meal-meta">
+                                  {meal.mealType === 'breakfast' && '🌅'}
+                                  {meal.mealType === 'lunch' && '☀️'}
+                                  {meal.mealType === 'dinner' && '🌙'}
+                                  {meal.mealType === 'snack' && '🍿'}
+                                  {meal.mealType || 'dinner'} • {new Date(meal.date).toLocaleDateString()}
+                                </span>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="empty-plan">This meal plan is empty. Generate a recipe and add it!</p>
+                      )}
+                    </div>
+                    
+                    <div className="meal-plan-stats">
+                      <span className="meal-count">
+                        📊 {plan.meals ? plan.meals.length : 0} meal{plan.meals && plan.meals.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="auth-required">
+              <h3>🔐 Login Required</h3>
+              <p>Create an account to access personalized meal planning features!</p>
+              <button 
+                onClick={() => setShowAuthForms(true)}
+                className="auth-required-btn"
+              >
+                🚀 Get Started - It's Free!
+              </button>
             </div>
           )}
-
-          <div className="meal-plans-grid">
-            {mealPlans.map(plan => (
-              <div key={plan._id} className="meal-plan-card">
-                <div className="meal-plan-header">
-                  <h3>📋 {plan.name}</h3>
-                  <button 
-                    onClick={() => deleteMealPlan(plan._id)}
-                    className="delete-plan-btn"
-                    title="Delete meal plan"
-                  >
-                    🗑️
-                  </button>
-                </div>
-                
-                <div className="meal-plan-content">
-                  {plan.meals && plan.meals.length > 0 ? (
-                    <ul className="meals-list">
-                      {plan.meals.map(meal => (
-                        <li key={meal._id} className="meal-item">
-                          <div className="meal-info">
-                            <span className="meal-title">🍽️ {meal.recipeTitle}</span>
-                            <span className="meal-meta">
-                              {meal.mealType === 'breakfast' && '🌅'}
-                              {meal.mealType === 'lunch' && '☀️'}
-                              {meal.mealType === 'dinner' && '🌙'}
-                              {meal.mealType === 'snack' && '🍿'}
-                              {meal.mealType || 'dinner'} • {new Date(meal.date).toLocaleDateString()}
-                            </span>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="empty-plan">This meal plan is empty. Generate a recipe and add it!</p>
-                  )}
-                </div>
-                
-                <div className="meal-plan-stats">
-                  <span className="meal-count">
-                    📊 {plan.meals ? plan.meals.length : 0} meal{plan.meals && plan.meals.length !== 1 ? 's' : ''}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
         </section>
       </main>
+
+      {/* Authentication Forms Modal */}
+      {showAuthForms && (
+        <AuthForms onClose={() => setShowAuthForms(false)} />
+      )}
     </div>
+  );
+}
+
+// Main App Component with AuthProvider
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 
