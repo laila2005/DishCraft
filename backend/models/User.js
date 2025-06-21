@@ -21,7 +21,7 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: [true, "Password is required"],
     minlength: [6, "Password must be at least 6 characters"],
-    select: false // Don't include password in queries by default
+    select: false
   },
   
   // User role and type
@@ -53,20 +53,158 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: ""
   },
+  location: {
+    type: String,
+    maxlength: [100, "Location cannot exceed 100 characters"],
+    default: ""
+  },
   
-  // Chef-specific fields (for future chef functionality)
-  isChef: {
+  // Account status
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+  isVerified: {
     type: Boolean,
     default: false
   },
+  
+  // ENHANCED: Chef-specific profile fields
   chefProfile: {
-    specialties: [String],
-    experience: String,
-    certifications: [String],
+    // Professional information
+    professionalTitle: {
+      type: String,
+      maxlength: [100, "Professional title cannot exceed 100 characters"],
+      default: ""
+    },
+    yearsOfExperience: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: 0
+    },
+    specialties: [{
+      type: String,
+      enum: [
+        "italian", "mexican", "asian", "american", "mediterranean", 
+        "indian", "french", "chinese", "japanese", "thai", 
+        "greek", "spanish", "middle-eastern", "african", "fusion",
+        "baking", "pastry", "grilling", "vegetarian", "vegan"
+      ]
+    }],
+    
+    // Chef credentials and achievements
+    certifications: [{
+      name: String,
+      institution: String,
+      year: Number
+    }],
+    awards: [{
+      name: String,
+      year: Number,
+      description: String
+    }],
+    
+    // Work experience
+    workExperience: [{
+      restaurantName: String,
+      position: String,
+      startYear: Number,
+      endYear: Number,
+      description: String
+    }],
+    
+    // Social media and contact
     socialMedia: {
-      instagram: String,
-      youtube: String,
-      website: String
+      instagram: {
+        type: String,
+        default: ""
+      },
+      twitter: {
+        type: String,
+        default: ""
+      },
+      facebook: {
+        type: String,
+        default: ""
+      },
+      youtube: {
+        type: String,
+        default: ""
+      },
+      tiktok: {
+        type: String,
+        default: ""
+      },
+      website: {
+        type: String,
+        default: ""
+      }
+    },
+    
+    // Chef verification and status
+    isVerifiedChef: {
+      type: Boolean,
+      default: false
+    },
+    verificationDate: {
+      type: Date
+    },
+    verificationDocuments: [{
+      type: String, // URLs to verification documents
+    }],
+    
+    // Chef statistics
+    totalRecipes: {
+      type: Number,
+      default: 0
+    },
+    totalViews: {
+      type: Number,
+      default: 0
+    },
+    totalLikes: {
+      type: Number,
+      default: 0
+    },
+    averageRating: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 5
+    },
+    totalRatings: {
+      type: Number,
+      default: 0
+    },
+    
+    // Chef preferences and settings
+    allowMessages: {
+      type: Boolean,
+      default: true
+    },
+    showEmail: {
+      type: Boolean,
+      default: false
+    },
+    showLocation: {
+      type: Boolean,
+      default: true
+    },
+    
+    // Featured content
+    featuredRecipes: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ChefRecipe"
+    }],
+    
+    // Chef subscription/premium features
+    isPremiumChef: {
+      type: Boolean,
+      default: false
+    },
+    premiumExpiryDate: {
+      type: Date
     }
   },
   
@@ -75,41 +213,86 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
-  isActive: {
-    type: Boolean,
-    default: true
+  loginCount: {
+    type: Number,
+    default: 0
   },
   
-  // Meal plans reference
+  // User relationships
+  following: [{
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User"
+    },
+    followedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  followers: [{
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User"
+    },
+    followedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  
+  // User meal plans (existing)
   mealPlans: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: "MealPlan"
   }],
   
-  // Favorite recipes (for future functionality)
+  // User favorite recipes
   favoriteRecipes: [{
-    recipeId: String,
+    recipeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ChefRecipe"
+    },
     recipeName: String,
     dateAdded: {
       type: Date,
       default: Date.now
     }
+  }],
+  
+  // User recipe collections
+  recipeCollections: [{
+    name: String,
+    description: String,
+    recipes: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ChefRecipe"
+    }],
+    isPublic: {
+      type: Boolean,
+      default: false
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
   }]
 }, {
-  timestamps: true // Adds createdAt and updatedAt automatically
+  timestamps: true
 });
 
-// Index for faster queries
+// Indexes for better performance
 userSchema.index({ email: 1 });
 userSchema.index({ role: 1 });
+userSchema.index({ "chefProfile.isVerifiedChef": 1 });
+userSchema.index({ "chefProfile.specialties": 1 });
+userSchema.index({ "chefProfile.averageRating": -1 });
+userSchema.index({ "chefProfile.totalRecipes": -1 });
 
 // Hash password before saving
 userSchema.pre("save", async function(next) {
-  // Only hash the password if it has been modified (or is new)
   if (!this.isModified("password")) return next();
   
   try {
-    // Hash password with cost of 12
     const salt = await bcrypt.genSalt(12);
     this.password = await bcrypt.hash(this.password, salt);
     next();
@@ -127,17 +310,130 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
   }
 };
 
-// Instance method to get public profile (without sensitive data)
+// Instance method to get public profile
 userSchema.methods.getPublicProfile = function() {
   const userObject = this.toObject();
   delete userObject.password;
   delete userObject.__v;
+  delete userObject.chefProfile?.verificationDocuments;
   return userObject;
+};
+
+// Instance method to get chef public profile
+userSchema.methods.getChefPublicProfile = function() {
+  const profile = this.getPublicProfile();
+  
+  if (this.role !== 'chef') {
+    delete profile.chefProfile;
+  } else {
+    // Only show public chef information
+    if (profile.chefProfile) {
+      delete profile.chefProfile.verificationDocuments;
+      if (!profile.chefProfile.showEmail) {
+        delete profile.email;
+      }
+      if (!profile.chefProfile.showLocation) {
+        delete profile.location;
+      }
+    }
+  }
+  
+  return profile;
 };
 
 // Static method to find user by email
 userSchema.statics.findByEmail = function(email) {
   return this.findOne({ email: email.toLowerCase() });
+};
+
+// Static method to find verified chefs
+userSchema.statics.findVerifiedChefs = function(options = {}) {
+  const query = {
+    role: 'chef',
+    isActive: true,
+    'chefProfile.isVerifiedChef': true
+  };
+  
+  if (options.specialties && options.specialties.length > 0) {
+    query['chefProfile.specialties'] = { $in: options.specialties };
+  }
+  
+  return this.find(query)
+    .select('-password')
+    .sort(options.sort || { 'chefProfile.averageRating': -1, 'chefProfile.totalRecipes': -1 })
+    .limit(options.limit || 20);
+};
+
+// Static method to find popular chefs
+userSchema.statics.findPopularChefs = function(limit = 10) {
+  return this.find({
+    role: 'chef',
+    isActive: true,
+    'chefProfile.totalRecipes': { $gt: 0 }
+  })
+    .select('-password')
+    .sort({ 
+      'chefProfile.totalViews': -1, 
+      'chefProfile.averageRating': -1,
+      'chefProfile.totalRecipes': -1 
+    })
+    .limit(limit);
+};
+
+// Instance method to update chef statistics
+userSchema.methods.updateChefStats = async function() {
+  if (this.role !== 'chef') return;
+  
+  const ChefRecipe = mongoose.model('ChefRecipe');
+  
+  // Get chef's recipes
+  const recipes = await ChefRecipe.find({ 
+    chefId: this._id, 
+    status: 'approved' 
+  });
+  
+  // Calculate statistics
+  const totalRecipes = recipes.length;
+  const totalViews = recipes.reduce((sum, recipe) => sum + recipe.views, 0);
+  const totalLikes = recipes.reduce((sum, recipe) => sum + recipe.likes.length, 0);
+  
+  // Calculate average rating
+  let totalRatings = 0;
+  let ratingSum = 0;
+  
+  recipes.forEach(recipe => {
+    totalRatings += recipe.ratings.length;
+    ratingSum += recipe.ratings.reduce((sum, rating) => sum + rating.rating, 0);
+  });
+  
+  const averageRating = totalRatings > 0 ? Math.round((ratingSum / totalRatings) * 10) / 10 : 0;
+  
+  // Update chef profile statistics
+  this.chefProfile.totalRecipes = totalRecipes;
+  this.chefProfile.totalViews = totalViews;
+  this.chefProfile.totalLikes = totalLikes;
+  this.chefProfile.averageRating = averageRating;
+  this.chefProfile.totalRatings = totalRatings;
+  
+  return this.save();
+};
+
+// Instance method to follow/unfollow another user
+userSchema.methods.toggleFollow = function(targetUserId) {
+  const isFollowing = this.following.some(follow => follow.userId.equals(targetUserId));
+  
+  if (isFollowing) {
+    // Unfollow
+    this.following = this.following.filter(follow => !follow.userId.equals(targetUserId));
+  } else {
+    // Follow
+    this.following.push({
+      userId: targetUserId,
+      followedAt: new Date()
+    });
+  }
+  
+  return this.save();
 };
 
 module.exports = mongoose.model("User", userSchema);
