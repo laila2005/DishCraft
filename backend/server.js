@@ -53,8 +53,6 @@ const generateToken = (userId) => {
   );
 };
 
-// Add these helper functions before the generate recipe endpoint
-
 // Helper function to generate cooking instructions
 const generateInstructions = (protein, vegetable, carb, sauce, cookingMethod) => {
   const instructions = [];
@@ -62,6 +60,7 @@ const generateInstructions = (protein, vegetable, carb, sauce, cookingMethod) =>
   switch (cookingMethod.toLowerCase()) {
     case 'grilling':
     case 'grilled':
+    case 'grill':
       instructions.push(`Preheat grill to medium-high heat.`);
       instructions.push(`Season the ${protein} with salt and pepper.`);
       instructions.push(`Grill the ${protein} for 6-8 minutes per side until cooked through.`);
@@ -72,6 +71,7 @@ const generateInstructions = (protein, vegetable, carb, sauce, cookingMethod) =>
       
     case 'stir-frying':
     case 'stir-fried':
+    case 'stir-fry':
       instructions.push(`Heat oil in a large wok or skillet over high heat.`);
       instructions.push(`Cut ${protein} into small pieces and add to the hot pan.`);
       instructions.push(`Stir-fry the ${protein} for 3-4 minutes until nearly cooked.`);
@@ -83,6 +83,7 @@ const generateInstructions = (protein, vegetable, carb, sauce, cookingMethod) =>
       
     case 'baking':
     case 'baked':
+    case 'bake':
       instructions.push(`Preheat oven to 375°F (190°C).`);
       instructions.push(`Place ${protein} in a baking dish and season with salt and pepper.`);
       instructions.push(`Add chopped ${vegetable} around the ${protein}.`);
@@ -94,6 +95,7 @@ const generateInstructions = (protein, vegetable, carb, sauce, cookingMethod) =>
       
     case 'sautéing':
     case 'sautéed':
+    case 'sauté':
       instructions.push(`Heat oil in a large skillet over medium-high heat.`);
       instructions.push(`Season ${protein} with salt and pepper, then add to the pan.`);
       instructions.push(`Cook ${protein} for 4-5 minutes per side until golden brown.`);
@@ -106,12 +108,24 @@ const generateInstructions = (protein, vegetable, carb, sauce, cookingMethod) =>
       
     case 'steaming':
     case 'steamed':
+    case 'steam':
       instructions.push(`Set up a steamer basket over boiling water.`);
       instructions.push(`Season ${protein} with salt and pepper.`);
       instructions.push(`Steam ${protein} for 12-15 minutes until cooked through.`);
       instructions.push(`Add ${vegetable} to the steamer for the last 5 minutes.`);
       instructions.push(`Cook ${carb} separately according to package instructions.`);
       instructions.push(`Serve the steamed ${protein} and ${vegetable} over ${carb} with ${sauce} on the side.`);
+      break;
+      
+    case 'roasting':
+    case 'roasted':
+    case 'roast':
+      instructions.push(`Preheat oven to 400°F (200°C).`);
+      instructions.push(`Season ${protein} with salt, pepper, and herbs.`);
+      instructions.push(`Place ${protein} and ${vegetable} on a roasting pan.`);
+      instructions.push(`Drizzle with ${sauce} and roast for 30-40 minutes.`);
+      instructions.push(`Cook ${carb} according to package instructions.`);
+      instructions.push(`Serve the roasted ${protein} and ${vegetable} with ${carb}.`);
       break;
       
     default:
@@ -130,24 +144,31 @@ const estimateCookingTime = (cookingMethod) => {
   switch (cookingMethod.toLowerCase()) {
     case 'grilling':
     case 'grilled':
+    case 'grill':
       return '20-25';
     case 'stir-frying':
     case 'stir-fried':
+    case 'stir-fry':
       return '15-20';
     case 'baking':
     case 'baked':
+    case 'bake':
       return '35-40';
     case 'sautéing':
     case 'sautéed':
+    case 'sauté':
       return '20-25';
     case 'steaming':
     case 'steamed':
+    case 'steam':
       return '25-30';
     case 'roasting':
     case 'roasted':
+    case 'roast':
       return '45-60';
     case 'braising':
     case 'braised':
+    case 'braise':
       return '60-90';
     default:
       return '25-30';
@@ -159,20 +180,27 @@ const determineDifficulty = (cookingMethod) => {
   switch (cookingMethod.toLowerCase()) {
     case 'steaming':
     case 'steamed':
+    case 'steam':
     case 'baking':
     case 'baked':
-    case 'roasting':
-    case 'roasted':
+    case 'bake':
       return 'easy';
     case 'grilling':
     case 'grilled':
+    case 'grill':
     case 'sautéing':
     case 'sautéed':
+    case 'sauté':
     case 'stir-frying':
     case 'stir-fried':
+    case 'stir-fry':
       return 'medium';
     case 'braising':
     case 'braised':
+    case 'braise':
+    case 'roasting':
+    case 'roasted':
+    case 'roast':
       return 'hard';
     default:
       return 'medium';
@@ -257,71 +285,110 @@ app.get("/api/ingredients", async (req, res) => {
   }
 });
 
-// POST generate recipe (enhanced with chef recipe option)
+// POST generate recipe (enhanced with chef recipe option and better error handling)
 app.post("/api/generate-recipe", async (req, res) => {
   try {
+    console.log("Generate recipe request received:", req.body);
     const { preferences } = req.body;
 
     // If user wants a chef recipe instead of ingredient-based generation
-    if (preferences.mode === 'chef-recipe' && preferences.chefRecipeId) {
-      const chefRecipe = await ChefRecipe.findById(preferences.chefRecipeId)
-        .populate('chefId', 'name chefProfile');
+    if (preferences && preferences.mode === 'chef-recipe' && preferences.chefRecipeId) {
+      try {
+        const chefRecipe = await ChefRecipe.findById(preferences.chefRecipeId)
+          .populate('chefId', 'name chefProfile');
 
-      if (!chefRecipe || !chefRecipe.isPublic || chefRecipe.status !== 'approved') {
-        return res.status(404).json({
-          success: false,
-          message: "Chef recipe not found or not available"
+        if (!chefRecipe || !chefRecipe.isPublic || chefRecipe.status !== 'approved') {
+          return res.status(404).json({
+            success: false,
+            message: "Chef recipe not found or not available"
+          });
+        }
+
+        // Increment views
+        await chefRecipe.incrementViews();
+
+        // Convert chef recipe to the format expected by frontend
+        const convertedRecipe = {
+          title: chefRecipe.title,
+          description: chefRecipe.description,
+          components: {
+            protein: chefRecipe.ingredients.find(ing => ing.name.toLowerCase().includes('chicken') || ing.name.toLowerCase().includes('beef') || ing.name.toLowerCase().includes('pork') || ing.name.toLowerCase().includes('fish') || ing.name.toLowerCase().includes('tofu')),
+            vegetable: chefRecipe.ingredients.find(ing => ing.name.toLowerCase().includes('vegetable') || ing.name.toLowerCase().includes('carrot') || ing.name.toLowerCase().includes('onion')),
+            carb: chefRecipe.ingredients.find(ing => ing.name.toLowerCase().includes('rice') || ing.name.toLowerCase().includes('pasta') || ing.name.toLowerCase().includes('bread')),
+            sauce: chefRecipe.ingredients.find(ing => ing.name.toLowerCase().includes('sauce') || ing.name.toLowerCase().includes('oil')),
+            cookingMethod: 'Chef\'s Method'
+          },
+          instructions: chefRecipe.instructions.map(inst => inst.instruction),
+          cookingTime: chefRecipe.formattedTotalTime,
+          difficulty: chefRecipe.difficulty,
+          servings: chefRecipe.servings,
+          prepTime: `${chefRecipe.prepTime} minutes`,
+          chefInfo: {
+            name: chefRecipe.chefId.name,
+            id: chefRecipe.chefId._id,
+            isChefRecipe: true
+          },
+          originalRecipeId: chefRecipe._id
+        };
+
+        return res.json(convertedRecipe);
+      } catch (chefRecipeError) {
+        console.error("Error processing chef recipe:", chefRecipeError);
+        return res.status(500).json({
+          error: "Failed to process chef recipe",
+          details: chefRecipeError.message
         });
       }
-
-      // Increment views
-      await chefRecipe.incrementViews();
-
-      // Convert chef recipe to the format expected by frontend
-      const convertedRecipe = {
-        title: chefRecipe.title,
-        description: chefRecipe.description,
-        components: {
-          protein: chefRecipe.ingredients.find(ing => ing.name.toLowerCase().includes('chicken') || ing.name.toLowerCase().includes('beef') || ing.name.toLowerCase().includes('pork') || ing.name.toLowerCase().includes('fish') || ing.name.toLowerCase().includes('tofu')),
-          vegetable: chefRecipe.ingredients.find(ing => ing.name.toLowerCase().includes('vegetable') || ing.name.toLowerCase().includes('carrot') || ing.name.toLowerCase().includes('onion')),
-          carb: chefRecipe.ingredients.find(ing => ing.name.toLowerCase().includes('rice') || ing.name.toLowerCase().includes('pasta') || ing.name.toLowerCase().includes('bread')),
-          sauce: chefRecipe.ingredients.find(ing => ing.name.toLowerCase().includes('sauce') || ing.name.toLowerCase().includes('oil')),
-          cookingMethod: 'Chef\'s Method'
-        },
-        instructions: chefRecipe.instructions.map(inst => inst.instruction),
-        cookingTime: chefRecipe.formattedTotalTime,
-        difficulty: chefRecipe.difficulty,
-        servings: chefRecipe.servings,
-        prepTime: `${chefRecipe.prepTime} minutes`,
-        chefInfo: {
-          name: chefRecipe.chefId.name,
-          id: chefRecipe.chefId._id,
-          isChefRecipe: true
-        },
-        originalRecipeId: chefRecipe._id
-      };
-
-      return res.json(convertedRecipe);
     }
 
     // Original ingredient-based recipe generation logic
-    const { userIngredients = [], dietaryRestrictions = '', cuisinePreference = '', proteinPreference = '' } = preferences;
+    const { userIngredients = [], dietaryRestrictions = '', cuisinePreference = '', proteinPreference = '' } = preferences || {};
 
     console.log('Generating recipe with preferences:', preferences);
 
-    // Fetch recipe components from database
-    const [proteins, vegetables, carbs, sauces, cookingMethods] = await Promise.all([
-      RecipeComponent.find({ type: 'protein' }),
-      RecipeComponent.find({ type: 'vegetable' }),
-      RecipeComponent.find({ type: 'carb' }),
-      RecipeComponent.find({ type: 'sauce' }),
-      RecipeComponent.find({ type: 'cooking_method' })
-    ]);
+    // Fetch recipe components from database with better error handling
+    let proteins, vegetables, carbs, sauces, cookingMethods;
+    
+    try {
+      [proteins, vegetables, carbs, sauces, cookingMethods] = await Promise.all([
+        RecipeComponent.find({ type: 'protein' }),
+        RecipeComponent.find({ type: 'vegetable' }),
+        RecipeComponent.find({ type: 'carb' }),
+        RecipeComponent.find({ $or: [{ type: 'sauce' }, { type: 'sauce_base' }] }), // Handle both possible types
+        RecipeComponent.find({ type: 'cooking_method' })
+      ]);
 
-    if (!proteins.length || !vegetables.length || !carbs.length || !sauces.length || !cookingMethods.length) {
-      return res.status(500).json({
-        error: "Insufficient recipe components in database"
+      console.log('Database query results:', {
+        proteins: proteins.length,
+        vegetables: vegetables.length,
+        carbs: carbs.length,
+        sauces: sauces.length,
+        cookingMethods: cookingMethods.length
       });
+
+    } catch (dbError) {
+      console.error("Database query error:", dbError);
+      return res.status(500).json({
+        error: "Database query failed",
+        details: dbError.message
+      });
+    }
+
+    // Check if we have sufficient data, provide fallbacks if needed
+    if (!proteins.length) {
+      proteins = [{ name: 'Chicken Breast', type: 'protein' }, { name: 'Tofu', type: 'protein' }, { name: 'Salmon', type: 'protein' }];
+    }
+    if (!vegetables.length) {
+      vegetables = [{ name: 'Broccoli', type: 'vegetable' }, { name: 'Bell Peppers', type: 'vegetable' }, { name: 'Carrots', type: 'vegetable' }];
+    }
+    if (!carbs.length) {
+      carbs = [{ name: 'Rice', type: 'carb' }, { name: 'Pasta', type: 'carb' }, { name: 'Quinoa', type: 'carb' }];
+    }
+    if (!sauces.length) {
+      sauces = [{ name: 'Olive Oil', type: 'sauce' }, { name: 'Soy Sauce', type: 'sauce' }, { name: 'Tomato Sauce', type: 'sauce' }];
+    }
+    if (!cookingMethods.length) {
+      cookingMethods = [{ name: 'Sauté', type: 'cooking_method' }, { name: 'Bake', type: 'cooking_method' }, { name: 'Grill', type: 'cooking_method' }];
     }
 
     let selectedProtein, selectedVegetable, selectedCarb, selectedSauce, selectedMethod;
@@ -435,9 +502,11 @@ app.post("/api/generate-recipe", async (req, res) => {
     res.json(recipe);
   } catch (err) {
     console.error("Error generating recipe:", err.message);
+    console.error("Full error:", err);
     res.status(500).json({
       error: "Failed to generate recipe",
-      details: err.message
+      details: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
     });
   }
 });
