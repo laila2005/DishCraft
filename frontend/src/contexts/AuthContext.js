@@ -16,8 +16,10 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(localStorage.getItem('dishcraft_token'));
 
-  // Use environment variable for backend URL
-  const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
+  // Get backend URL with fallback
+  const getBackendUrl = () => {
+    return process.env.REACT_APP_BACKEND_URL || 'https://dishcraft-backend-3tk2.onrender.com';
+  };
 
   // Set axios default header for authorization
   useEffect(() => {
@@ -33,9 +35,12 @@ export const AuthProvider = ({ children }) => {
     if (token) {
       try {
         setLoading(true);
-        const response = await axios.get(`${BACKEND_URL}/api/auth/me`); // Corrected endpoint to /api/auth/me
+        const backendUrl = getBackendUrl();
+        console.log('Checking auth with backend:', `${backendUrl}/api/auth/me`);
+        
+        const response = await axios.get(`${backendUrl}/api/auth/me`);
         setUser(response.data.user);
-        // console.log("Auth check successful:", response.data.user);
+        console.log("Auth check successful:", response.data.user);
       } catch (error) {
         console.error('Auth check failed:', error);
         setUser(null);
@@ -47,7 +52,7 @@ export const AuthProvider = ({ children }) => {
     } else {
       setLoading(false);
     }
-  }, [token, BACKEND_URL]);
+  }, [token]);
 
   // Run auth check on component mount and when token changes
   useEffect(() => {
@@ -57,41 +62,51 @@ export const AuthProvider = ({ children }) => {
   // Login function
   const login = useCallback(async (email, password) => {
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/auth/login`, { email, password });
+      const backendUrl = getBackendUrl();
+      console.log('Attempting login with backend:', `${backendUrl}/api/auth/login`);
+      
+      const response = await axios.post(`${backendUrl}/api/auth/login`, { email, password });
       const { token, user } = response.data;
+      
       localStorage.setItem('dishcraft_token', token);
       setToken(token);
       setUser(user);
-      // console.log("Login successful:", user);
+      console.log("Login successful:", user);
       return { success: true };
     } catch (error) {
       console.error('Login error:', error);
-      return { success: false, message: error.response?.data?.message || 'Login failed' };
+      const message = error.response?.data?.message || error.message || 'Login failed';
+      return { success: false, message };
     }
-  }, [BACKEND_URL]);
+  }, []);
 
   // Signup function
   const signup = useCallback(async (name, email, password, role) => {
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/auth/signup`, { name, email, password, role }); // Corrected endpoint to /api/auth/signup
+      const backendUrl = getBackendUrl();
+      console.log('Attempting signup with backend:', `${backendUrl}/api/auth/signup`);
+      
+      const response = await axios.post(`${backendUrl}/api/auth/signup`, { name, email, password, role });
       const { token, user } = response.data;
+      
       localStorage.setItem('dishcraft_token', token);
       setToken(token);
       setUser(user);
-      // console.log("Signup successful:", user);
+      console.log("Signup successful:", user);
       return { success: true };
     } catch (error) {
       console.error('Registration error:', error);
-      return { success: false, message: error.response?.data?.message || 'Registration failed' };
+      const message = error.response?.data?.message || error.message || 'Registration failed';
+      return { success: false, message };
     }
-  }, [BACKEND_URL]);
+  }, []);
 
   // Logout function
   const logout = useCallback(() => {
     localStorage.removeItem('dishcraft_token');
     setToken(null);
     setUser(null);
-    // console.log("Logged out");
+    console.log("Logged out");
   }, []);
 
   const value = {
@@ -102,6 +117,7 @@ export const AuthProvider = ({ children }) => {
     signup,
     logout,
     token,
+    backendUrl: getBackendUrl(),
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

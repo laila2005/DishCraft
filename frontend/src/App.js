@@ -7,10 +7,10 @@ import './App.css';
 
 // Main App Component (wrapped with authentication)
 function AppContent() {
-  const { user, isAuthenticated, login, logout } = useAuth();
+  const { user, isAuthenticated, login, logout, loading: authLoading } = useAuth();
 
   // Existing state for ingredients and recipe generation
-  const [ingredients, setIngredients] = useState([]); // Ensure it's initialized as an empty array
+  const [ingredients, setIngredients] = useState([]); // CRITICAL: Initialize as empty array
   const [loadingIngredients, setLoadingIngredients] = useState(true);
   const [errorIngredients, setErrorIngredients] = useState(null);
 
@@ -30,16 +30,37 @@ function AppContent() {
   const [errorMealPlans, setErrorMealPlans] = useState(null);
   const [newMealPlanName, setNewMealPlanName] = useState('');
 
+  // Get backend URL with fallback
+  const getBackendUrl = () => {
+    return process.env.REACT_APP_BACKEND_URL || 'https://dishcraft-backend-3tk2.onrender.com';
+  };
+
   // Fetch ingredients from backend
   useEffect(() => {
     const fetchIngredients = async () => {
       try {
         setLoadingIngredients(true);
-        const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/ingredients`);
-        setIngredients(response.data.data); // Ensure data is an array
+        setErrorIngredients(null);
+        
+        const backendUrl = getBackendUrl();
+        console.log('Fetching ingredients from:', `${backendUrl}/api/ingredients`);
+        
+        const response = await axios.get(`${backendUrl}/api/ingredients`);
+        
+        // CRITICAL: Ensure data is an array
+        const ingredientsData = response.data?.data;
+        if (Array.isArray(ingredientsData)) {
+          setIngredients(ingredientsData);
+          console.log(`Successfully loaded ${ingredientsData.length} ingredients`);
+        } else {
+          console.warn('Ingredients data is not an array:', ingredientsData);
+          setIngredients([]);
+          setErrorIngredients('Invalid ingredients data format');
+        }
       } catch (error) {
         console.error('Error fetching ingredients:', error);
-        setErrorIngredients('Failed to load ingredients.');
+        setErrorIngredients('Failed to load ingredients. Please check your connection.');
+        setIngredients([]); // CRITICAL: Set to empty array on error
       } finally {
         setLoadingIngredients(false);
       }
@@ -52,20 +73,25 @@ function AppContent() {
   const handleIngredientInputChange = useCallback((e) => {
     const input = e.target.value;
     setIngredientInput(input);
+    
     if (input.length > 0) {
-      // Ensure ingredients is an array before calling filter
-      const filtered = Array.isArray(ingredients) 
-        ? ingredients.filter(ing => 
-            ing.name.toLowerCase().includes(input.toLowerCase())
-          )
-        : [];
-      setFilteredIngredients(filtered);
-      setShowIngredientSuggestions(true);
+      // CRITICAL: Always check if ingredients is an array before calling filter
+      if (Array.isArray(ingredients)) {
+        const filtered = ingredients.filter(ing => 
+          ing.name && ing.name.toLowerCase().includes(input.toLowerCase())
+        );
+        setFilteredIngredients(filtered);
+        setShowIngredientSuggestions(true);
+      } else {
+        console.warn('Ingredients is not an array when filtering:', ingredients);
+        setFilteredIngredients([]);
+        setShowIngredientSuggestions(false);
+      }
     } else {
       setFilteredIngredients([]);
       setShowIngredientSuggestions(false);
     }
-  }, [ingredients]); // Depend on ingredients state
+  }, [ingredients]);
 
   // Add ingredient to user's list
   const addIngredient = useCallback((ingredientName) => {
@@ -88,12 +114,17 @@ function AppContent() {
   const generateRecipe = useCallback(async () => {
     setLoadingRecipe(true);
     setErrorRecipe(null);
+    
     try {
-      const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/api/generate-recipe`, {
+      const backendUrl = getBackendUrl();
+      console.log('Generating recipe with ingredients:', userIngredients);
+      
+      const response = await axios.post(`${backendUrl}/api/generate-recipe`, {
         ingredients: userIngredients,
-        // Add other preferences like dietaryRestrictions, cuisinePreference, mealType if you have them in your UI
       });
+      
       setGeneratedRecipe(response.data.data);
+      console.log('Recipe generated successfully:', response.data.data.name);
     } catch (error) {
       console.error('Error generating recipe:', error);
       setErrorRecipe('Failed to generate recipe. Please try again.');
@@ -108,16 +139,18 @@ function AppContent() {
       if (isAuthenticated && user) {
         setLoadingMealPlans(true);
         try {
+          const backendUrl = getBackendUrl();
           const config = {
             headers: {
-              Authorization: `Bearer ${localStorage.getItem('token')}`,
+              Authorization: `Bearer ${localStorage.getItem('dishcraft_token')}`,
             },
           };
-          const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/meal-plans`, config);
-          setMealPlans(response.data.data);
+          const response = await axios.get(`${backendUrl}/api/meal-plans`, config);
+          setMealPlans(response.data.data || []);
         } catch (error) {
           console.error('Error fetching meal plans:', error);
           setErrorMealPlans('Failed to load meal plans.');
+          setMealPlans([]);
         } finally {
           setLoadingMealPlans(false);
         }
@@ -129,20 +162,32 @@ function AppContent() {
   // Add meal plan
   const addMealPlan = useCallback(async () => {
     if (!newMealPlanName.trim()) return;
+    
     try {
+      const backendUrl = getBackendUrl();
       const config = {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          Authorization: `Bearer ${localStorage.getItem('dishcraft_token')}`,
         },
       };
-      const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/api/meal-plans`, { name: newMealPlanName }, config);
+      const response = await axios.post(`${backendUrl}/api/meal-plans`, { name: newMealPlanName }, config);
       setMealPlans(prev => [...prev, response.data.data]);
       setNewMealPlanName('');
     } catch (error) {
       console.error('Error adding meal plan:', error);
-      // Handle error, e.g., show a message to the user
     }
   }, [newMealPlanName]);
+
+  // Show loading screen while auth is being checked
+  if (authLoading) {
+    return (
+      <div className="App">
+        <div className="loading-screen">
+          <h2>Loading DishCraft...</h2>
+        </div>
+      </div>
+    );
+  }
 
   // Render content based on authentication status
   return (
@@ -152,10 +197,10 @@ function AppContent() {
         {isAuthenticated ? (
           <div className="auth-status">
             <p>Welcome, {user?.name} ({user?.role})!</p>
-            <button onClick={logout}>Logout</button>
+            <button onClick={logout} className="logout-btn">Logout</button>
           </div>
         ) : (
-          <p>Please log in or sign up</p>
+          <p>Please log in or sign up to continue</p>
         )}
       </header>
 
@@ -166,6 +211,15 @@ function AppContent() {
           <>
             <section className="recipe-generation-section">
               <h2>Generate Your Next Meal</h2>
+              
+              {/* Backend Connection Status */}
+              <div className="connection-status">
+                <p>Backend: {getBackendUrl()}</p>
+                {errorIngredients && (
+                  <p className="error-message">⚠️ {errorIngredients}</p>
+                )}
+              </div>
+
               <div className="ingredient-input-container">
                 <input
                   type="text"
@@ -185,18 +239,26 @@ function AppContent() {
                   </ul>
                 )}
               </div>
+
               <div className="user-ingredients-list">
                 {userIngredients.map(ing => (
                   <span key={ing} className="ingredient-tag">
                     {ing}
-                    <button onClick={() => removeIngredient(ing)}>x</button>
+                    <button onClick={() => removeIngredient(ing)}>×</button>
                   </span>
                 ))}
               </div>
-              <button onClick={generateRecipe} disabled={loadingRecipe || userIngredients.length === 0}>
+
+              <button 
+                onClick={generateRecipe} 
+                disabled={loadingRecipe || userIngredients.length === 0}
+                className="generate-btn"
+              >
                 {loadingRecipe ? 'Generating...' : 'Generate Recipe'}
               </button>
+
               {errorRecipe && <p className="error-message">{errorRecipe}</p>}
+
               {generatedRecipe && (
                 <div className="generated-recipe-card">
                   <h3>{generatedRecipe.name}</h3>
@@ -236,7 +298,6 @@ function AppContent() {
                 {mealPlans.map(plan => (
                   <div key={plan._id} className="meal-plan-card">
                     <h4>{plan.name}</h4>
-                    {/* Display meals within the plan here */}
                   </div>
                 ))}
               </div>
