@@ -1,5 +1,4 @@
-// Create: DishCraft/frontend/src/contexts/AuthContext.js
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
 const AuthContext = createContext();
@@ -17,10 +16,11 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(localStorage.getItem('dishcraft_token'));
 
-  const BACKEND_URL = 'https://dishcraft-backend-3tk2.onrender.com';
+  // Use environment variable for backend URL
+  const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
-  // Set axios default header
-  useEffect(( ) => {
+  // Set axios default header for authorization
+  useEffect(() => {
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     } else {
@@ -28,121 +28,81 @@ export const AuthProvider = ({ children }) => {
     }
   }, [token]);
 
-  // Check if user is logged in on app start
-  useEffect(() => {
-    const checkAuth = async () => {
-      if (token) {
-        try {
-          const response = await axios.get(`${BACKEND_URL}/api/auth/profile`);
-          if (response.data.success) {
-            setUser(response.data.user);
-          } else {
-            logout();
-          }
-        } catch (error) {
-          console.error('Auth check failed:', error);
-          logout();
-        }
+  // Function to check authentication status and fetch user data
+  const checkAuth = useCallback(async () => {
+    if (token) {
+      try {
+        setLoading(true);
+        const response = await axios.get(`${BACKEND_URL}/api/auth/me`); // Corrected endpoint to /api/auth/me
+        setUser(response.data.user);
+        // console.log("Auth check successful:", response.data.user);
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        setUser(null);
+        setToken(null);
+        localStorage.removeItem('dishcraft_token');
+      } finally {
+        setLoading(false);
       }
+    } else {
       setLoading(false);
-    };
+    }
+  }, [token, BACKEND_URL]);
 
+  // Run auth check on component mount and when token changes
+  useEffect(() => {
     checkAuth();
-  }, [token]);
+  }, [checkAuth]);
 
-  const login = async (email, password) => {
+  // Login function
+  const login = useCallback(async (email, password) => {
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/auth/login`, {
-        email,
-        password
-      });
-
-      if (response.data.success) {
-        const { token: newToken, user: userData } = response.data;
-        setToken(newToken);
-        setUser(userData);
-        localStorage.setItem('dishcraft_token', newToken);
-        axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-        return { success: true };
-      } else {
-        return { success: false, message: response.data.message };
-      }
+      const response = await axios.post(`${BACKEND_URL}/api/auth/login`, { email, password });
+      const { token, user } = response.data;
+      localStorage.setItem('dishcraft_token', token);
+      setToken(token);
+      setUser(user);
+      // console.log("Login successful:", user);
+      return { success: true };
     } catch (error) {
       console.error('Login error:', error);
-      return { 
-        success: false, 
-        message: error.response?.data?.message || 'Login failed. Please try again.' 
-      };
+      return { success: false, message: error.response?.data?.message || 'Login failed' };
     }
-  };
+  }, [BACKEND_URL]);
 
-  const register = async (name, email, password, role = 'user') => {
+  // Signup function
+  const signup = useCallback(async (name, email, password, role) => {
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/auth/register`, {
-        name,
-        email,
-        password,
-        role
-      });
-
-      if (response.data.success) {
-        const { token: newToken, user: userData } = response.data;
-        setToken(newToken);
-        setUser(userData);
-        localStorage.setItem('dishcraft_token', newToken);
-        axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-        return { success: true };
-      } else {
-        return { success: false, message: response.data.message };
-      }
+      const response = await axios.post(`${BACKEND_URL}/api/auth/signup`, { name, email, password, role }); // Corrected endpoint to /api/auth/signup
+      const { token, user } = response.data;
+      localStorage.setItem('dishcraft_token', token);
+      setToken(token);
+      setUser(user);
+      // console.log("Signup successful:", user);
+      return { success: true };
     } catch (error) {
       console.error('Registration error:', error);
-      return { 
-        success: false, 
-        message: error.response?.data?.message || 'Registration failed. Please try again.' 
-      };
+      return { success: false, message: error.response?.data?.message || 'Registration failed' };
     }
-  };
+  }, [BACKEND_URL]);
 
-  const logout = () => {
-    setUser(null);
-    setToken(null);
+  // Logout function
+  const logout = useCallback(() => {
     localStorage.removeItem('dishcraft_token');
-    delete axios.defaults.headers.common['Authorization'];
-  };
-
-  const updateProfile = async (profileData) => {
-    try {
-      const response = await axios.put(`${BACKEND_URL}/api/auth/profile`, profileData);
-      if (response.data.success) {
-        setUser(response.data.user);
-        return { success: true };
-      } else {
-        return { success: false, message: response.data.message };
-      }
-    } catch (error) {
-      console.error('Profile update error:', error);
-      return { 
-        success: false, 
-        message: error.response?.data?.message || 'Profile update failed.' 
-      };
-    }
-  };
+    setToken(null);
+    setUser(null);
+    // console.log("Logged out");
+  }, []);
 
   const value = {
     user,
-    token,
+    isAuthenticated: !!user,
     loading,
     login,
-    register,
+    signup,
     logout,
-    updateProfile,
-    isAuthenticated: !!user
+    token,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
