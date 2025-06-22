@@ -33,9 +33,6 @@ const userSchema = new mongoose.Schema({
   },
 });
 
-// If you had userSchema.index({ email: 1 }, { unique: true }); remove it.
-// The `unique: true` in the schema definition for `email` is sufficient.
-
 // Hash password before saving
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) {

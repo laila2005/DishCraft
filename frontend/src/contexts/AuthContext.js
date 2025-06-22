@@ -13,68 +13,74 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // Initial loading state for auth check
   const [token, setToken] = useState(localStorage.getItem('dishcraft_token'));
 
   // Get backend URL with fallback
   const getBackendUrl = () => {
+    // Use process.env.REACT_APP_BACKEND_URL if defined, otherwise fallback to Render URL
     return process.env.REACT_APP_BACKEND_URL || 'https://dishcraft-backend-3tk2.onrender.com';
   };
 
-  // Set axios default header for authorization
+  // Set axios default header for authorization whenever token changes
   useEffect(() => {
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     } else {
+      // Remove Authorization header if no token
       delete axios.defaults.headers.common['Authorization'];
     }
   }, [token]);
 
   // Function to check authentication status and fetch user data
   const checkAuth = useCallback(async () => {
+    setLoading(true); // Start loading when checking auth
     if (token) {
       try {
-        setLoading(true);
         const backendUrl = getBackendUrl();
-        console.log('Checking auth with backend:', `${backendUrl}/api/auth/me`);
+        console.log('AuthContext: Checking auth with backend:', `${backendUrl}/api/auth/me`);
         
+        // Make a request to the /api/auth/me endpoint to validate the token
         const response = await axios.get(`${backendUrl}/api/auth/me`);
-        setUser(response.data.user);
-        console.log("Auth check successful:", response.data.user);
+        setUser(response.data.user); // Set user data if token is valid
+        console.log("AuthContext: Auth check successful, user:", response.data.user.email);
       } catch (error) {
-        console.error('Auth check failed:', error);
+        console.error('AuthContext: Auth check failed:', error.response?.data?.message || error.message);
+        // If token is invalid or expired, clear user data and token
         setUser(null);
         setToken(null);
         localStorage.removeItem('dishcraft_token');
       } finally {
-        setLoading(false);
+        setLoading(false); // End loading after auth check
       }
     } else {
-      setLoading(false);
+      // No token found, so not authenticated
+      setUser(null);
+      setLoading(false); // End loading if no token
     }
-  }, [token]);
+  }, [token]); // Re-run if token changes
 
-  // Run auth check on component mount and when token changes
+  // Run auth check on component mount (once) and when token changes
   useEffect(() => {
     checkAuth();
-  }, [checkAuth]);
+  }, [checkAuth]); // Dependency array ensures it runs when checkAuth is stable
 
   // Login function
   const login = useCallback(async (email, password) => {
     try {
       const backendUrl = getBackendUrl();
-      console.log('Attempting login with backend:', `${backendUrl}/api/auth/login`);
+      console.log('AuthContext: Attempting login with backend:', `${backendUrl}/api/auth/login`);
       
       const response = await axios.post(`${backendUrl}/api/auth/login`, { email, password });
-      const { token, user } = response.data;
+      const { token: newToken, user: newUser } = response.data;
       
-      localStorage.setItem('dishcraft_token', token);
-      setToken(token);
-      setUser(user);
-      console.log("Login successful:", user);
+      localStorage.setItem('dishcraft_token', newToken);
+      setToken(newToken); // Update token state, which triggers checkAuth
+      setUser(newUser); // Set user immediately for faster UI update
+      console.log("AuthContext: Login successful for user:", newUser.email);
       return { success: true };
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('AuthContext: Login error:', error.response?.data?.message || error.message);
       const message = error.response?.data?.message || error.message || 'Login failed';
       return { success: false, message };
     }
@@ -84,18 +90,18 @@ export const AuthProvider = ({ children }) => {
   const signup = useCallback(async (name, email, password, role) => {
     try {
       const backendUrl = getBackendUrl();
-      console.log('Attempting signup with backend:', `${backendUrl}/api/auth/signup`);
+      console.log('AuthContext: Attempting signup with backend:', `${backendUrl}/api/auth/signup`);
       
       const response = await axios.post(`${backendUrl}/api/auth/signup`, { name, email, password, role });
-      const { token, user } = response.data;
+      const { token: newToken, user: newUser } = response.data;
       
-      localStorage.setItem('dishcraft_token', token);
-      setToken(token);
-      setUser(user);
-      console.log("Signup successful:", user);
+      localStorage.setItem('dishcraft_token', newToken);
+      setToken(newToken); // Update token state, which triggers checkAuth
+      setUser(newUser); // Set user immediately for faster UI update
+      console.log("AuthContext: Signup successful for user:", newUser.email);
       return { success: true };
     } catch (error) {
-      console.error('Registration error:', error);
+      console.error('AuthContext: Registration error:', error.response?.data?.message || error.message);
       const message = error.response?.data?.message || error.message || 'Registration failed';
       return { success: false, message };
     }
@@ -106,18 +112,18 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('dishcraft_token');
     setToken(null);
     setUser(null);
-    console.log("Logged out");
+    console.log("AuthContext: Logged out");
   }, []);
 
   const value = {
     user,
-    isAuthenticated: !!user,
-    loading,
+    isAuthenticated: !!user, // True if user object exists
+    loading, // Auth loading state
     login,
     signup,
     logout,
     token,
-    backendUrl: getBackendUrl(),
+    backendUrl: getBackendUrl(), // Expose backend URL for debugging/info
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

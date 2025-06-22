@@ -7,10 +7,10 @@ import './App.css';
 
 // Main App Component (wrapped with authentication)
 function AppContent() {
-  const { user, isAuthenticated, login, logout, loading: authLoading } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
 
   // Existing state for ingredients and recipe generation
-  const [ingredients, setIngredients] = useState([]); // CRITICAL: Initialize as empty array
+  const [ingredients, setIngredients] = useState([]);
   const [loadingIngredients, setLoadingIngredients] = useState(true);
   const [errorIngredients, setErrorIngredients] = useState(null);
 
@@ -47,7 +47,6 @@ function AppContent() {
         
         const response = await axios.get(`${backendUrl}/api/ingredients`);
         
-        // CRITICAL: Ensure data is an array
         const ingredientsData = response.data?.data;
         if (Array.isArray(ingredientsData)) {
           setIngredients(ingredientsData);
@@ -60,7 +59,7 @@ function AppContent() {
       } catch (error) {
         console.error('Error fetching ingredients:', error);
         setErrorIngredients('Failed to load ingredients. Please check your connection.');
-        setIngredients([]); // CRITICAL: Set to empty array on error
+        setIngredients([]);
       } finally {
         setLoadingIngredients(false);
       }
@@ -75,7 +74,6 @@ function AppContent() {
     setIngredientInput(input);
     
     if (input.length > 0) {
-      // CRITICAL: Always check if ingredients is an array before calling filter
       if (Array.isArray(ingredients)) {
         const filtered = ingredients.filter(ing => 
           ing.name && ing.name.toLowerCase().includes(input.toLowerCase())
@@ -217,6 +215,9 @@ function AppContent() {
                 <p>Backend: {getBackendUrl()}</p>
                 {errorIngredients && (
                   <p className="error-message">⚠️ {errorIngredients}</p>
+                )}
+                {loadingIngredients && (
+                  <p className="loading-message">Loading ingredients...</p>
                 )}
               </div>
 

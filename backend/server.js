@@ -522,184 +522,125 @@ app.post("/api/generate-recipe", optionalAuth, async (req, res) => {
     const allIngredients = await Ingredient.find({});
     const allRecipeComponents = await RecipeComponent.find({});
 
-    console.log(`Found ${allIngredients.length} ingredients and ${allRecipeComponents.length} components in database`);
+    console.log(`Found ${allIngredients.length} ingredients and ${allRecipeComponents.length} recipe components.`);
 
-    // Filter recipe components by type
-    const proteins = allRecipeComponents.filter(comp => comp.type === "protein");
-    const vegetables = allRecipeComponents.filter(comp => comp.type === "vegetable");
-    const carbs = allRecipeComponents.filter(comp => comp.type === "carb");
-    const sauceBases = allRecipeComponents.filter(comp => comp.type === "sauce_base");
-    const cookingMethods = allRecipeComponents.filter(comp => comp.type === "cooking_method");
+    // Fallback data in case database is empty or specific types are missing
+    const defaultProteins = ["chicken breast", "beef steak", "tofu", "salmon", "eggs", "lentils", "pork loin", "shrimp", "turkey", "beans"];
+    const defaultVegetables = ["broccoli", "spinach", "carrots", "bell peppers", "onions", "mushrooms", "zucchini", "sweet potatoes", "asparagus", "kale"];
+    const defaultCarbs = ["rice", "pasta", "quinoa", "potatoes", "bread", "oats", "couscous", "corn"];
+    const defaultSauceBases = ["tomato sauce", "cream sauce", "soy sauce", "pesto", "curry paste", "broth", "coconut milk", "peanut butter", "vinegar", "lemon juice"];
+    const defaultCookingMethods = ["Baking", "Frying", "Grilling", "Boiling", "Roasting", "Steaming", "Sautéing", "Braising"];
 
-    // Fallback arrays if database is empty
-    const fallbackProteins = [
-      { name: "Chicken Breast", description: "Lean protein", type: "protein" },
-      { name: "Salmon Fillet", description: "Rich in omega-3", type: "protein" },
-      { name: "Tofu", description: "Plant-based protein", type: "protein" }
-    ];
-    
-    const fallbackVegetables = [
-      { name: "Broccoli", description: "Green vegetable", type: "vegetable" },
-      { name: "Bell Peppers", description: "Colorful vegetables", type: "vegetable" },
-      { name: "Spinach", description: "Leafy green", type: "vegetable" }
-    ];
-    
-    const fallbackCarbs = [
-      { name: "Rice", description: "Staple carbohydrate", type: "carb" },
-      { name: "Pasta", description: "Italian staple", type: "carb" },
-      { name: "Quinoa", description: "Protein-rich grain", type: "carb" }
-    ];
-    
-    const fallbackSauces = [
-      { name: "Tomato Sauce", description: "Versatile sauce base", type: "sauce_base" },
-      { name: "Olive Oil", description: "Healthy fat", type: "sauce_base" },
-      { name: "Soy Sauce", description: "Asian flavor", type: "sauce_base" }
-    ];
-    
-    const fallbackMethods = [
-      { name: "Baking", description: "Oven cooking", type: "cooking_method" },
-      { name: "Sautéing", description: "Pan cooking", type: "cooking_method" },
-      { name: "Grilling", description: "High heat cooking", type: "cooking_method" }
-    ];
+    const proteins = allRecipeComponents.filter(c => c.type === 'protein').map(c => c.name) || defaultProteins;
+    const vegetables = allRecipeComponents.filter(c => c.type === 'vegetable').map(c => c.name) || defaultVegetables;
+    const carbs = allRecipeComponents.filter(c => c.type === 'carb').map(c => c.name) || defaultCarbs;
+    const sauceBases = allRecipeComponents.filter(c => c.type === 'sauce_base').map(c => c.name) || defaultSauceBases;
+    const cookingMethods = allRecipeComponents.filter(c => c.type === 'cooking_method').map(c => c.name) || defaultCookingMethods;
 
-    // Use database data or fallback
-    const availableProteins = proteins.length > 0 ? proteins : fallbackProteins;
-    const availableVegetables = vegetables.length > 0 ? vegetables : fallbackVegetables;
-    const availableCarbs = carbs.length > 0 ? carbs : fallbackCarbs;
-    const availableSauces = sauceBases.length > 0 ? sauceBases : fallbackSauces;
-    const availableMethods = cookingMethods.length > 0 ? cookingMethods : fallbackMethods;
+    // Filter ingredients based on user input (if provided)
+    let availableIngredients = userIngredients && userIngredients.length > 0
+      ? allIngredients.filter(ing => userIngredients.includes(ing.name))
+      : allIngredients;
 
-    // Select components
-    let selectedProtein = availableProteins[Math.floor(Math.random() * availableProteins.length)];
-    let selectedVegetable = availableVegetables[Math.floor(Math.random() * availableVegetables.length)];
-    let selectedCarb = availableCarbs[Math.floor(Math.random() * availableCarbs.length)];
-    let selectedSauceBase = availableSauces[Math.floor(Math.random() * availableSauces.length)];
-    let selectedCookingMethod = availableMethods[Math.floor(Math.random() * availableMethods.length)];
-
-    // Attempt to match user ingredients to available components
-    const matchedIngredients = [];
-    const missingIngredients = [];
-    let ingredientMatchScore = 0;
-
-    if (userIngredients && userIngredients.length > 0) {
-      userIngredients.forEach(userIng => {
-        const lowerUserIng = userIng.toLowerCase();
-        const foundIngredient = allIngredients.find(ing => 
-          ing.name.toLowerCase().includes(lowerUserIng) || 
-          lowerUserIng.includes(ing.name.toLowerCase())
-        );
-        
-        if (foundIngredient) {
-          matchedIngredients.push(foundIngredient.name);
-          ingredientMatchScore += 1;
-
-          // Prioritize user's ingredients for selection
-          if (foundIngredient.category === "protein") {
-            const matchingProtein = availableProteins.find(p => 
-              p.name.toLowerCase().includes(foundIngredient.name.toLowerCase())
-            );
-            if (matchingProtein) selectedProtein = matchingProtein;
-          } else if (foundIngredient.category === "vegetable") {
-            const matchingVegetable = availableVegetables.find(v => 
-              v.name.toLowerCase().includes(foundIngredient.name.toLowerCase())
-            );
-            if (matchingVegetable) selectedVegetable = matchingVegetable;
-          } else if (foundIngredient.category === "grain") {
-            const matchingCarb = availableCarbs.find(c => 
-              c.name.toLowerCase().includes(foundIngredient.name.toLowerCase())
-            );
-            if (matchingCarb) selectedCarb = matchingCarb;
-          }
-        }
-      });
-
-      // Determine missing ingredients
-      const requiredComponents = [selectedProtein, selectedVegetable, selectedCarb, selectedSauceBase];
-      requiredComponents.forEach(comp => {
-        if (!userIngredients.some(userIng => 
-          comp.name.toLowerCase().includes(userIng.toLowerCase()) ||
-          userIng.toLowerCase().includes(comp.name.toLowerCase())
-        )) {
-          missingIngredients.push(comp.name);
-        }
-      });
+    if (availableIngredients.length === 0 && userIngredients.length > 0) {
+      console.warn("No matching ingredients found in DB for user input. Using all available ingredients.");
+      availableIngredients = allIngredients;
     }
 
-    // Calculate ingredient match percentage
-    const totalPossibleMatches = Math.max(4, userIngredients ? userIngredients.length : 4);
-    const matchPercentage = userIngredients && userIngredients.length > 0 
-      ? (ingredientMatchScore / totalPossibleMatches) * 100 
-      : 0;
+    // Simple recipe generation logic (can be expanded)
+    let selectedIngredients = [];
+    let missingIngredients = [];
 
-    // Generate recipe name
-    const recipeName = `${selectedCookingMethod.name} ${selectedProtein.name} with ${selectedVegetable.name} and ${selectedCarb.name}`;
+    // Try to pick ingredients from user's list first
+    if (userIngredients && userIngredients.length > 0) {
+      // Prioritize user ingredients
+      selectedIngredients = userIngredients.slice(0, 3); // Take first 3 user ingredients
 
-    // Generate instructions, cooking time, and difficulty using helper functions
-    const instructions = generateInstructions(selectedCookingMethod.name);
-    const cookingTime = estimateCookingTime(selectedCookingMethod.name);
-    const difficulty = determineDifficulty(selectedCookingMethod.name);
+      // Check for missing components based on a simple recipe structure
+      const hasProtein = selectedIngredients.some(ing => proteins.includes(ing));
+      const hasVegetable = selectedIngredients.some(ing => vegetables.includes(ing));
+      const hasCarb = selectedIngredients.some(ing => carbs.includes(ing));
+      const hasSauce = selectedIngredients.some(ing => sauceBases.includes(ing));
+
+      if (!hasProtein && proteins.length > 0) missingIngredients.push(proteins[Math.floor(Math.random() * proteins.length)]);
+      if (!hasVegetable && vegetables.length > 0) missingIngredients.push(vegetables[Math.floor(Math.random() * vegetables.length)]);
+      if (!hasCarb && carbs.length > 0) missingIngredients.push(carbs[Math.floor(Math.random() * carbs.length)]);
+      if (!hasSauce && sauceBases.length > 0) missingIngredients.push(sauceBases[Math.floor(Math.random() * sauceBases.length)]);
+
+      // Add some random ingredients if user provided few
+      while (selectedIngredients.length < 5 && availableIngredients.length > 0) {
+        const randomIng = availableIngredients[Math.floor(Math.random() * availableIngredients.length)].name;
+        if (!selectedIngredients.includes(randomIng)) {
+          selectedIngredients.push(randomIng);
+        }
+      }
+    } else {
+      // If no user ingredients, pick random ones
+      console.log("No user ingredients provided, generating random recipe.");
+      selectedIngredients = [];
+      const allNames = allIngredients.map(ing => ing.name);
+      while (selectedIngredients.length < 5 && allNames.length > 0) {
+        const randomIng = allNames[Math.floor(Math.random() * allNames.length)];
+        if (!selectedIngredients.includes(randomIng)) {
+          selectedIngredients.push(randomIng);
+        }
+      }
+      // If still no ingredients, use defaults
+      if (selectedIngredients.length === 0) {
+        selectedIngredients = [defaultProteins[0], defaultVegetables[0], defaultCarbs[0], defaultSauceBases[0]];
+      }
+    }
+
+    // Select a random cooking method
+    const randomCookingMethod = cookingMethods[Math.floor(Math.random() * cookingMethods.length)];
+
+    const recipeName = `Delicious ${randomCookingMethod} ${selectedIngredients[0] || 'Dish'}`;
+    const instructions = generateInstructions(randomCookingMethod);
+    const cookingTime = estimateCookingTime(randomCookingMethod);
+    const difficulty = determineDifficulty(randomCookingMethod);
 
     const generatedRecipe = {
       name: recipeName,
-      ingredients: [
-        selectedProtein.name,
-        selectedVegetable.name,
-        selectedCarb.name,
-        selectedSauceBase.name,
-      ],
-      instructions: instructions,
-      cookingTime: cookingTime,
-      difficulty: difficulty,
-      cuisine: cuisinePreference || "",
-      mealType: mealType || "",
-      matchedIngredients: matchedIngredients,
-      missingIngredients: missingIngredients,
-      ingredientMatchPercentage: matchPercentage.toFixed(2),
-      servings: 4,
-      prepTime: "15 minutes"
+      ingredients: selectedIngredients,
+      instructions,
+      cookingTime,
+      difficulty,
+      missingIngredients: missingIngredients.filter(Boolean), // Filter out any undefined/null
+      // Add more fields as needed, e.g., servings, prepTime, etc.
     };
 
-    console.log("Recipe generated successfully:", recipeName);
     res.status(200).json({ success: true, data: generatedRecipe });
+
   } catch (error) {
     console.error("=== GENERATE RECIPE ERROR ===");
     console.error("Error details:", error);
     res.status(500).json({ 
       success: false, 
-      message: "Failed to generate recipe", 
+      message: "Failed to generate recipe. Please try again.",
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
 
-// Global error handling middleware
+// Error handling middleware (catch-all)
 app.use((err, req, res, next) => {
-  console.error("=== UNHANDLED ERROR ===");
-  console.error("Error stack:", err.stack);
-  res.status(500).json({ 
-    success: false, 
-    message: "Something went wrong on the server",
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined
-  });
+  console.error("Unhandled error:", err.stack);
+  res.status(500).send('Something broke!');
 });
 
-// 404 handler
-app.use("*", (req, res) => {
-  console.log("404 - Route not found:", req.method, req.originalUrl);
-  res.status(404).json({ 
-    success: false, 
-    message: "Route not found" 
-  });
+// Handle 404 - Not Found
+app.use((req, res, next) => {
+  res.status(404).json({ success: false, message: `Route not found: ${req.method} ${req.originalUrl}` });
 });
 
 // Start server
 app.listen(PORT, () => {
-  console.log("=".repeat(50));
+  console.log("==================================================");
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📅 Started at: ${new Date().toISOString()}`);
-  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
   console.log(`🔑 JWT_SECRET configured: ${!!process.env.JWT_SECRET}`);
   console.log(`🗄️  MONGO_URI configured: ${!!process.env.MONGO_URI}`);
   console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
-  console.log("=".repeat(50));
+  console.log("==================================================");
 });
