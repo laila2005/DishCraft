@@ -36,18 +36,14 @@ app.use((req, res, next) => {
   next();
 });
 
-// Connect to MongoDB with better error handling
+// Connect to MongoDB with better error handling (removed deprecated options)
 const connectDB = async () => {
   try {
     if (!process.env.MONGO_URI) {
       throw new Error("MONGO_URI is not defined in environment variables");
     }
 
-    const conn = await mongoose.connect(process.env.MONGO_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
-
+    const conn = await mongoose.connect(process.env.MONGO_URI);
     console.log(`MongoDB Connected: ${conn.connection.host}`);
   } catch (err) {
     console.error("MongoDB connection error:", err.message);
@@ -363,7 +359,7 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
-// Protected route example
+// Protected route for getting current user info
 app.get("/api/auth/me", authenticateToken, (req, res) => {
   res.status(200).json({
     success: true,

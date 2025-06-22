@@ -11,11 +11,10 @@ const userSchema = new mongoose.Schema({
   email: {
     type: String,
     required: [true, "Email is required"],
-    unique: true,
+    unique: true, // This is the primary way to define unique index
     lowercase: true,
     trim: true,
     match: [/^[\w-]+(?:\.[\w-]+)*@(?:[\w-]+\.)+[a-zA-Z]{2,7}$/, "Please enter a valid email"],
-    // Remove the index: true to avoid duplicate index warning
   },
   password: {
     type: String,
@@ -34,8 +33,8 @@ const userSchema = new mongoose.Schema({
   },
 });
 
-// Create index manually to avoid duplicate warning
-userSchema.index({ email: 1 }, { unique: true });
+// If you had userSchema.index({ email: 1 }, { unique: true }); remove it.
+// The `unique: true` in the schema definition for `email` is sufficient.
 
 // Hash password before saving
 userSchema.pre("save", async function (next) {
@@ -57,7 +56,7 @@ userSchema.methods.matchPassword = async function (enteredPassword) {
   try {
     return await bcrypt.compare(enteredPassword, this.password);
   } catch (error) {
-    throw new Error('Password comparison failed');
+    throw new Error("Password comparison failed");
   }
 };
 
