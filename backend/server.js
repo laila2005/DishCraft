@@ -5,6 +5,9 @@ const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 
+// Load environment variables first
+dotenv.config();
+
 // Import models
 const Ingredient = require("./models/Ingredient");
 const RecipeComponent = require("./models/RecipeComponent");
@@ -16,148 +19,168 @@ const ChefRecipe = require("./models/ChefRecipe");
 // Import middleware
 const { authenticateToken, requireChef, requireAdmin, optionalAuth } = require("./middleware/authMiddleware");
 
-dotenv.config();
-
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// CORS Configuration
-app.use(cors());
-app.use(express.json());
+// Middleware
+app.use(cors({
+  origin: true, // Allow all origins for development
+  credentials: true
+}));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
 
-// Connect to MongoDB
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  next();
+});
+
+// Connect to MongoDB with better error handling
 const connectDB = async () => {
   try {
-    await mongoose.connect(process.env.MONGO_URI);
-    console.log("MongoDB Connected...");
+    if (!process.env.MONGO_URI) {
+      throw new Error("MONGO_URI is not defined in environment variables");
+    }
+
+    const conn = await mongoose.connect(process.env.MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+
+    console.log(`MongoDB Connected: ${conn.connection.host}`);
   } catch (err) {
     console.error("MongoDB connection error:", err.message);
     process.exit(1);
   }
 };
 
+// Initialize database connection
 connectDB();
 
 // Utility functions for recipe generation
 const generateInstructions = (cookingMethod) => {
-  switch (cookingMethod) {
-    case "Baking":
-      return [
-        "Preheat oven to specified temperature.",
-        "Prepare baking dish as instructed.",
-        "Combine ingredients in a bowl.",
-        "Pour mixture into baking dish.",
-        "Bake for the recommended time until golden brown.",
-        "Let cool before serving.",
-      ];
-    case "Frying":
-      return [
-        "Heat oil in a pan over medium-high heat.",
-        "Add ingredients to the hot oil.",
-        "Fry until crispy and cooked through, turning occasionally.",
-        "Remove from pan and drain excess oil on paper towels.",
-        "Serve hot.",
-      ];
-    case "Grilling":
-      return [
-        "Preheat grill to medium-high heat.",
-        "Brush ingredients with oil and season.",
-        "Place on grill and cook for recommended time, turning once.",
-        "Remove from grill and let rest before serving.",
-      ];
-    case "Boiling":
-      return [
-        "Bring a pot of water to a rolling boil.",
-        "Add ingredients to boiling water.",
-        "Cook until tender or desired consistency.",
-        "Drain water and serve.",
-      ];
-    case "Roasting":
-      return [
-        "Preheat oven to specified temperature.",
-        "Toss ingredients with oil and seasonings on a baking sheet.",
-        "Roast until tender and caramelized, flipping halfway.",
-        "Serve immediately.",
-      ];
-    case "Steaming":
-      return [
-        "Fill a pot with an inch or two of water and bring to a simmer.",
-        "Place ingredients in a steamer basket over the simmering water.",
-        "Cover and steam until tender-crisp.",
-        "Serve immediately.",
-      ];
-    case "Sautéing":
-      return [
-        "Heat a small amount of oil or butter in a skillet over medium-high heat.",
-        "Add ingredients and cook quickly, stirring frequently, until tender and lightly browned.",
-        "Serve immediately.",
-      ];
-    case "Braising":
-      return [
-        "Sear meat or vegetables in a pot until browned.",
-        "Add liquid (broth, wine) to cover partially.",
-        "Bring to a simmer, then cover and cook on low heat or in oven until tender.",
-        "Serve with the cooking liquid.",
-      ];
-    default:
-      return [
-        "Prepare ingredients as needed.",
-        "Cook using a suitable method until done.",
-        "Season to taste and serve.",
-      ];
-  }
+  const instructions = {
+    "Baking": [
+      "Preheat oven to specified temperature.",
+      "Prepare baking dish as instructed.",
+      "Combine ingredients in a bowl.",
+      "Pour mixture into baking dish.",
+      "Bake for the recommended time until golden brown.",
+      "Let cool before serving.",
+    ],
+    "Frying": [
+      "Heat oil in a pan over medium-high heat.",
+      "Add ingredients to the hot oil.",
+      "Fry until crispy and cooked through, turning occasionally.",
+      "Remove from pan and drain excess oil on paper towels.",
+      "Serve hot.",
+    ],
+    "Grilling": [
+      "Preheat grill to medium-high heat.",
+      "Brush ingredients with oil and season.",
+      "Place on grill and cook for recommended time, turning once.",
+      "Remove from grill and let rest before serving.",
+    ],
+    "Boiling": [
+      "Bring a pot of water to a rolling boil.",
+      "Add ingredients to boiling water.",
+      "Cook until tender or desired consistency.",
+      "Drain water and serve.",
+    ],
+    "Roasting": [
+      "Preheat oven to specified temperature.",
+      "Toss ingredients with oil and seasonings on a baking sheet.",
+      "Roast until tender and caramelized, flipping halfway.",
+      "Serve immediately.",
+    ],
+    "Steaming": [
+      "Fill a pot with an inch or two of water and bring to a simmer.",
+      "Place ingredients in a steamer basket over the simmering water.",
+      "Cover and steam until tender-crisp.",
+      "Serve immediately.",
+    ],
+    "Sautéing": [
+      "Heat a small amount of oil or butter in a skillet over medium-high heat.",
+      "Add ingredients and cook quickly, stirring frequently, until tender and lightly browned.",
+      "Serve immediately.",
+    ],
+    "Braising": [
+      "Sear meat or vegetables in a pot until browned.",
+      "Add liquid (broth, wine) to cover partially.",
+      "Bring to a simmer, then cover and cook on low heat or in oven until tender.",
+      "Serve with the cooking liquid.",
+    ]
+  };
+
+  return instructions[cookingMethod] || [
+    "Prepare ingredients as needed.",
+    "Cook using a suitable method until done.",
+    "Season to taste and serve.",
+  ];
 };
 
 const estimateCookingTime = (cookingMethod) => {
-  switch (cookingMethod) {
-    case "Baking":
-      return "30-45 minutes";
-    case "Frying":
-      return "10-20 minutes";
-    case "Grilling":
-      return "15-25 minutes";
-    case "Boiling":
-      return "5-15 minutes";
-    case "Roasting":
-      return "40-60 minutes";
-    case "Steaming":
-      return "10-20 minutes";
-    case "Sautéing":
-      return "5-10 minutes";
-    case "Braising":
-      return "2-4 hours";
-    default:
-      return "20-30 minutes";
-  }
+  const times = {
+    "Baking": "30-45 minutes",
+    "Frying": "10-20 minutes",
+    "Grilling": "15-25 minutes",
+    "Boiling": "5-15 minutes",
+    "Roasting": "40-60 minutes",
+    "Steaming": "10-20 minutes",
+    "Sautéing": "5-10 minutes",
+    "Braising": "2-4 hours"
+  };
+
+  return times[cookingMethod] || "20-30 minutes";
 };
 
 const determineDifficulty = (cookingMethod) => {
-  switch (cookingMethod) {
-    case "Boiling":
-    case "Steaming":
-    case "Sautéing":
-      return "Easy";
-    case "Frying":
-    case "Grilling":
-    case "Baking":
-      return "Medium";
-    case "Roasting":
-    case "Braising":
-      return "Hard";
-    default:
-      return "Medium";
-  }
+  const difficulties = {
+    "Boiling": "Easy",
+    "Steaming": "Easy",
+    "Sautéing": "Easy",
+    "Frying": "Medium",
+    "Grilling": "Medium",
+    "Baking": "Medium",
+    "Roasting": "Hard",
+    "Braising": "Hard"
+  };
+
+  return difficulties[cookingMethod] || "Medium";
 };
 
-// Auth Routes
+// Health check endpoint (should be first)
+app.get("/api/health", (req, res) => {
+  res.status(200).json({ 
+    success: true, 
+    message: "Server is running",
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    mongoConnected: mongoose.connection.readyState === 1
+  });
+});
+
+// Auth Routes with comprehensive error handling
 app.post("/api/auth/signup", async (req, res) => {
   try {
-    console.log("Signup request received:", req.body);
+    console.log("=== SIGNUP REQUEST ===");
+    console.log("Request body:", JSON.stringify(req.body, null, 2));
     
     const { name, email, password, role } = req.body;
 
+    // Validate environment
+    if (!process.env.JWT_SECRET) {
+      console.error("JWT_SECRET is not configured");
+      return res.status(500).json({ 
+        success: false, 
+        message: "Server configuration error - JWT_SECRET missing" 
+      });
+    }
+
     // Validate required fields
     if (!name || !email || !password) {
+      console.log("Missing required fields");
       return res.status(400).json({ 
         success: false, 
         message: "Name, email, and password are required" 
@@ -167,6 +190,7 @@ app.post("/api/auth/signup", async (req, res) => {
     // Validate email format
     const emailRegex = /^[\w-]+(?:\.[\w-]+)*@(?:[\w-]+\.)+[a-zA-Z]{2,7}$/;
     if (!emailRegex.test(email)) {
+      console.log("Invalid email format:", email);
       return res.status(400).json({ 
         success: false, 
         message: "Please enter a valid email address" 
@@ -175,6 +199,7 @@ app.post("/api/auth/signup", async (req, res) => {
 
     // Validate password length
     if (password.length < 6) {
+      console.log("Password too short");
       return res.status(400).json({ 
         success: false, 
         message: "Password must be at least 6 characters long" 
@@ -182,54 +207,52 @@ app.post("/api/auth/signup", async (req, res) => {
     }
 
     // Check if user already exists
-    let user = await User.findOne({ email: email.toLowerCase() });
-    if (user) {
+    console.log("Checking if user exists with email:", email);
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    if (existingUser) {
+      console.log("User already exists");
       return res.status(400).json({ 
         success: false, 
         message: "User with this email already exists" 
       });
     }
 
-    // Validate JWT_SECRET
-    if (!process.env.JWT_SECRET) {
-      console.error("JWT_SECRET is not defined in environment variables");
-      return res.status(500).json({ 
-        success: false, 
-        message: "Server configuration error" 
-      });
-    }
-
     // Create new user
-    user = new User({
+    console.log("Creating new user...");
+    const user = new User({
       name: name.trim(),
       email: email.toLowerCase().trim(),
       password,
-      role: role || "user", // Default to 'user' if not provided
+      role: role || "user",
     });
 
-    await user.save();
-    console.log("User created successfully:", user._id);
+    const savedUser = await user.save();
+    console.log("User created successfully with ID:", savedUser._id);
 
     // Generate JWT
     const token = jwt.sign(
-      { userId: user._id, role: user.role }, 
+      { userId: savedUser._id, role: savedUser.role }, 
       process.env.JWT_SECRET, 
       { expiresIn: process.env.JWT_EXPIRE || "7d" }
     );
+
+    console.log("JWT token generated successfully");
 
     res.status(201).json({
       success: true,
       message: "User registered successfully",
       token,
       user: { 
-        id: user._id, 
-        name: user.name, 
-        email: user.email, 
-        role: user.role 
+        id: savedUser._id, 
+        name: savedUser.name, 
+        email: savedUser.email, 
+        role: savedUser.role 
       },
     });
+
   } catch (error) {
-    console.error("Signup error:", error);
+    console.error("=== SIGNUP ERROR ===");
+    console.error("Error details:", error);
     
     // Handle mongoose validation errors
     if (error.name === 'ValidationError') {
@@ -250,51 +273,62 @@ app.post("/api/auth/signup", async (req, res) => {
     
     res.status(500).json({ 
       success: false, 
-      message: "Server error during signup. Please try again." 
+      message: "Server error during signup. Please try again.",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
 
 app.post("/api/auth/login", async (req, res) => {
   try {
-    console.log("Login request received:", { email: req.body.email });
+    console.log("=== LOGIN REQUEST ===");
+    console.log("Request body:", JSON.stringify({ email: req.body.email }, null, 2));
     
     const { email, password } = req.body;
 
+    // Validate environment
+    if (!process.env.JWT_SECRET) {
+      console.error("JWT_SECRET is not configured");
+      return res.status(500).json({ 
+        success: false, 
+        message: "Server configuration error - JWT_SECRET missing" 
+      });
+    }
+
     // Validate required fields
     if (!email || !password) {
+      console.log("Missing email or password");
       return res.status(400).json({ 
         success: false, 
         message: "Email and password are required" 
       });
     }
 
-    // Check if user exists
+    // Find user and include password for comparison
+    console.log("Looking for user with email:", email.toLowerCase());
     const user = await User.findOne({ email: email.toLowerCase() }).select("+password");
+    
     if (!user) {
+      console.log("User not found");
       return res.status(400).json({ 
         success: false, 
         message: "Invalid email or password" 
       });
     }
 
+    console.log("User found, checking password...");
+    
     // Check password
     const isMatch = await user.matchPassword(password);
     if (!isMatch) {
+      console.log("Password does not match");
       return res.status(400).json({ 
         success: false, 
         message: "Invalid email or password" 
       });
     }
 
-    // Validate JWT_SECRET
-    if (!process.env.JWT_SECRET) {
-      console.error("JWT_SECRET is not defined in environment variables");
-      return res.status(500).json({ 
-        success: false, 
-        message: "Server configuration error" 
-      });
-    }
+    console.log("Password matches, generating token...");
 
     // Generate JWT
     const token = jwt.sign(
@@ -303,7 +337,7 @@ app.post("/api/auth/login", async (req, res) => {
       { expiresIn: process.env.JWT_EXPIRE || "7d" }
     );
 
-    console.log("User logged in successfully:", user._id);
+    console.log("Login successful for user:", user._id);
 
     res.status(200).json({
       success: true,
@@ -316,11 +350,15 @@ app.post("/api/auth/login", async (req, res) => {
         role: user.role 
       },
     });
+
   } catch (error) {
-    console.error("Login error:", error);
+    console.error("=== LOGIN ERROR ===");
+    console.error("Error details:", error);
+    
     res.status(500).json({ 
       success: false, 
-      message: "Server error during login. Please try again." 
+      message: "Server error during login. Please try again.",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
@@ -479,7 +517,8 @@ app.post("/api/chef-recipes", authenticateToken, requireChef, async (req, res) =
 // Generate Recipe Endpoint
 app.post("/api/generate-recipe", optionalAuth, async (req, res) => {
   try {
-    console.log("Generate recipe request received:", req.body);
+    console.log("=== GENERATE RECIPE REQUEST ===");
+    console.log("Request body:", JSON.stringify(req.body, null, 2));
     
     const { ingredients: userIngredients, dietaryRestrictions, cuisinePreference, mealType } = req.body;
 
@@ -627,44 +666,44 @@ app.post("/api/generate-recipe", optionalAuth, async (req, res) => {
     console.log("Recipe generated successfully:", recipeName);
     res.status(200).json({ success: true, data: generatedRecipe });
   } catch (error) {
-    console.error("Error generating recipe:", error);
+    console.error("=== GENERATE RECIPE ERROR ===");
+    console.error("Error details:", error);
     res.status(500).json({ 
       success: false, 
       message: "Failed to generate recipe", 
-      error: error.message 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
 
-// Health check endpoint
-app.get("/api/health", (req, res) => {
-  res.status(200).json({ 
-    success: true, 
-    message: "Server is running",
-    timestamp: new Date().toISOString()
-  });
-});
-
-// Error handling middleware
+// Global error handling middleware
 app.use((err, req, res, next) => {
-  console.error("Unhandled error:", err.stack);
+  console.error("=== UNHANDLED ERROR ===");
+  console.error("Error stack:", err.stack);
   res.status(500).json({ 
     success: false, 
-    message: "Something went wrong on the server" 
+    message: "Something went wrong on the server",
+    error: process.env.NODE_ENV === 'development' ? err.message : undefined
   });
 });
 
 // 404 handler
 app.use("*", (req, res) => {
+  console.log("404 - Route not found:", req.method, req.originalUrl);
   res.status(404).json({ 
     success: false, 
     message: "Route not found" 
   });
 });
 
+// Start server
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`JWT_SECRET configured: ${!!process.env.JWT_SECRET}`);
-  console.log(`MONGO_URI configured: ${!!process.env.MONGO_URI}`);
+  console.log("=".repeat(50));
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`📅 Started at: ${new Date().toISOString()}`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔑 JWT_SECRET configured: ${!!process.env.JWT_SECRET}`);
+  console.log(`🗄️  MONGO_URI configured: ${!!process.env.MONGO_URI}`);
+  console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
+  console.log("=".repeat(50));
 });
