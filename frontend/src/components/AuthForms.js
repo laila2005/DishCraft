@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import './AuthForms.css';
 
 const AuthForms = ({ onClose }) => {
+  const { login, register } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
     name: '',
@@ -14,14 +15,14 @@ const AuthForms = ({ onClose }) => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const { login, register } = useAuth();
-
   const handleInputChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-    setError('');
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    // Clear error when user starts typing
+    if (error) setError('');
   };
 
   const handleSubmit = async (e) => {
@@ -31,20 +32,25 @@ const AuthForms = ({ onClose }) => {
     setSuccess('');
 
     try {
-      let result;
       if (isLogin) {
-        result = await login(formData.email, formData.password);
+        const result = await login(formData.email, formData.password);
+        if (result.success) {
+          setSuccess('Login successful!');
+          setTimeout(() => {
+            onClose();
+          }, 1000);
+        } else {
+          setError(result.message || 'Login failed');
+        }
       } else {
-        result = await register(formData.name, formData.email, formData.password, formData.role);
-      }
-
-      if (result.success) {
-        setSuccess(isLogin ? 'Login successful!' : 'Registration successful!');
-        setTimeout(() => {
-          onClose();
-        }, 1000);
-      } else {
-        setError(result.message);
+        const result = await register(formData.name, formData.email, formData.password, formData.role);
+        if (result.success) {
+          setSuccess('Registration successful! You can now log in.');
+          setIsLogin(true);
+          setFormData({ name: '', email: '', password: '', role: 'user' });
+        } else {
+          setError(result.message || 'Registration failed');
+        }
       }
     } catch (error) {
       setError('An unexpected error occurred. Please try again.');
@@ -53,102 +59,210 @@ const AuthForms = ({ onClose }) => {
     }
   };
 
-  const toggleMode = () => {
+  const toggleForm = () => {
     setIsLogin(!isLogin);
-    setFormData({
-      name: '',
-      email: '',
-      password: '',
-      role: 'user'
-    });
     setError('');
     setSuccess('');
+    setFormData({ name: '', email: '', password: '', role: 'user' });
   };
 
   return (
     <div className="auth-overlay">
-      <div className="auth-modal">
-        <button className="close-btn" onClick={onClose}>×</button>
+      <div className="auth-container">
+        <button className="auth-close-btn" onClick={onClose}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
         
-        <div className="auth-header">
-          <h2>{isLogin ? 'Login' : 'Sign Up'}</h2>
-          <p>{isLogin ? 'Welcome back!' : 'Create your account'}</p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="auth-form">
-          {!isLogin && (
-            <div className="form-group">
-              <label htmlFor="name">Name</label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                required={!isLogin}
-                placeholder="Enter your name"
-              />
+        <div className="auth-card">
+          <div className="auth-header">
+            <div className="auth-logo">
+              <div className="logo-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 2L13.09 8.26L20 9L13.09 9.74L12 16L10.91 9.74L4 9L10.91 8.26L12 2Z" fill="currentColor"/>
+                </svg>
+              </div>
+              <h1>DishCraft</h1>
             </div>
-          )}
-
-          <div className="form-group">
-            <label htmlFor="email">Email</label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              required
-              placeholder="Enter your email"
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              value={formData.password}
-              onChange={handleInputChange}
-              required
-              placeholder="Enter your password"
-              minLength="6"
-            />
-          </div>
-
-          {!isLogin && (
-            <div className="form-group">
-              <label htmlFor="role">Role</label>
-              <select
-                id="role"
-                name="role"
-                value={formData.role}
-                onChange={handleInputChange}
-                required
+            <div className="auth-tabs">
+              <button 
+                className={`auth-tab ${isLogin ? 'active' : ''}`}
+                onClick={() => setIsLogin(true)}
               >
-                <option value="user">User</option>
-                <option value="chef">Chef</option>
-              </select>
+                Login
+              </button>
+              <button 
+                className={`auth-tab ${!isLogin ? 'active' : ''}`}
+                onClick={() => setIsLogin(false)}
+              >
+                Sign Up
+              </button>
             </div>
-          )}
+          </div>
 
-          {error && <div className="error-message">{error}</div>}
-          {success && <div className="success-message">{success}</div>}
+          <div className="auth-content">
+            <div className="auth-welcome">
+              <h2>{isLogin ? 'Welcome back!' : 'Join DishCraft'}</h2>
+              <p>{isLogin ? 'Sign in to your account to continue' : 'Create an account to start generating amazing recipes'}</p>
+            </div>
 
-          <button type="submit" disabled={loading} className="submit-btn">
-            {loading ? 'Processing...' : (isLogin ? 'Login' : 'Sign Up')}
-          </button>
-        </form>
+            {error && (
+              <div className="auth-message error">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                  <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" strokeWidth="2"/>
+                  <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" strokeWidth="2"/>
+                </svg>
+                {error}
+              </div>
+            )}
 
-        <div className="auth-toggle">
-          <p>
-            {isLogin ? "Don't have an account? " : "Already have an account? "}
-            <button type="button" onClick={toggleMode} className="toggle-btn">
-              {isLogin ? 'Sign Up' : 'Login'}
-            </button>
-          </p>
+            {success && (
+              <div className="auth-message success">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" strokeWidth="2" fill="none"/>
+                  <polyline points="22,4 12,14.01 9,11.01" stroke="currentColor" strokeWidth="2" fill="none"/>
+                </svg>
+                {success}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="auth-form">
+              {!isLogin && (
+                <div className="form-group">
+                  <label htmlFor="name">Full Name</label>
+                  <div className="input-wrapper">
+                    <svg className="input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="2" fill="none"/>
+                      <circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="2" fill="none"/>
+                    </svg>
+                    <input
+                      type="text"
+                      id="name"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleInputChange}
+                      placeholder="Enter your full name"
+                      required={!isLogin}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="form-group">
+                <label htmlFor="email">Email Address</label>
+                <div className="input-wrapper">
+                  <svg className="input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" stroke="currentColor" strokeWidth="2" fill="none"/>
+                    <polyline points="22,6 12,13 2,6" stroke="currentColor" strokeWidth="2" fill="none"/>
+                  </svg>
+                  <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    placeholder="Enter your email"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="password">Password</label>
+                <div className="input-wrapper">
+                  <svg className="input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" stroke="currentColor" strokeWidth="2" fill="none"/>
+                    <circle cx="12" cy="16" r="1" fill="currentColor"/>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" strokeWidth="2" fill="none"/>
+                  </svg>
+                  <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    placeholder="Enter your password"
+                    required
+                  />
+                </div>
+              </div>
+
+              {!isLogin && (
+                <div className="form-group">
+                  <label htmlFor="role">Account Type</label>
+                  <div className="role-selection">
+                    <label className={`role-option ${formData.role === 'user' ? 'selected' : ''}`}>
+                      <input
+                        type="radio"
+                        name="role"
+                        value="user"
+                        checked={formData.role === 'user'}
+                        onChange={handleInputChange}
+                      />
+                      <div className="role-content">
+                        <div className="role-icon">
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="2" fill="none"/>
+                            <circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="2" fill="none"/>
+                          </svg>
+                        </div>
+                        <div className="role-info">
+                          <h4>User</h4>
+                          <p>Generate and discover recipes</p>
+                        </div>
+                      </div>
+                    </label>
+                    <label className={`role-option ${formData.role === 'chef' ? 'selected' : ''}`}>
+                      <input
+                        type="radio"
+                        name="role"
+                        value="chef"
+                        checked={formData.role === 'chef'}
+                        onChange={handleInputChange}
+                      />
+                      <div className="role-content">
+                        <div className="role-icon">
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z" stroke="currentColor" strokeWidth="2" fill="none"/>
+                            <line x1="10" y1="9" x2="10" y2="9" stroke="currentColor" strokeWidth="2"/>
+                            <line x1="12" y1="9" x2="12" y2="9" stroke="currentColor" strokeWidth="2"/>
+                            <line x1="14" y1="9" x2="14" y2="9" stroke="currentColor" strokeWidth="2"/>
+                          </svg>
+                        </div>
+                        <div className="role-info">
+                          <h4>Chef</h4>
+                          <p>Create and share your recipes</p>
+                        </div>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              <button type="submit" className="auth-submit-btn" disabled={loading}>
+                {loading ? (
+                  <div className="loading-spinner">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M21 12a9 9 0 11-6.219-8.56" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                  </div>
+                ) : (
+                  isLogin ? 'Sign In' : 'Create Account'
+                )}
+              </button>
+            </form>
+
+            <div className="auth-footer">
+              <p>
+                {isLogin ? "Don't have an account? " : "Already have an account? "}
+                <button type="button" onClick={toggleForm} className="auth-link">
+                  {isLogin ? 'Sign Up' : 'Sign In'}
+                </button>
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

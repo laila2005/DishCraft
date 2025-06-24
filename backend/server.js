@@ -54,66 +54,132 @@ const connectDB = async () => {
 connectDB();
 
 // Utility functions for recipe generation
-const generateInstructions = (cookingMethod) => {
-  const instructions = {
-    "Baking": [
-      "Preheat oven to specified temperature.",
-      "Prepare baking dish as instructed.",
-      "Bake until golden brown and cooked through.",
-      "Let cool before serving."
-    ],
-    "Frying": [
-      "Heat oil in a pan over medium-high heat.",
-      "Add ingredients and stir-fry until cooked.",
-      "Season to taste and serve immediately."
-    ],
-    "Boiling": [
-      "Bring a pot of water to a rolling boil.",
-      "Add ingredients and cook until tender.",
-      "Drain and serve."
-    ],
-    "Roasting": [
-      "Preheat oven to specified temperature.",
-      "Toss ingredients with oil and seasonings.",
-      "Roast until tender and slightly caramelized."
-    ],
-    "Grilling": [
-      "Preheat grill to medium-high heat.",
-      "Brush ingredients with oil and seasonings.",
-      "Grill until cooked through and grill marks appear."
-    ],
-    "Steaming": [
-      "Bring water to a boil in a pot with a steamer basket.",
-      "Place ingredients in the steamer basket.",
-      "Steam until tender-crisp."
-    ],
-    "Stewing": [
-      "Brown ingredients in a pot.",
-      "Add liquid and simmer until tender.",
-      "Season and serve hot."
-    ],
-    "Braising": [
-      "Sear ingredients in a pot until browned.",
-      "Add liquid and cover, then simmer gently until tender.",
-      "Reduce sauce and serve."
-    ],
-    "Poaching": [
-      "Gently simmer ingredients in liquid until cooked through.",
-      "Remove from liquid and serve."
-    ],
-    "Sautéing": [
-      "Heat a small amount of fat in a pan over medium-high heat.",
-      "Add ingredients and cook quickly until tender-crisp.",
-      "Season and serve."
-    ],
-    "Stir-frying": [
-      "Heat oil in a wok or large pan over high heat.",
-      "Add ingredients in order of cooking time required.",
-      "Stir constantly until all ingredients are cooked through.",
-      "Season to taste and serve immediately."
-    ]
-  };
-  return instructions[cookingMethod] || ["Follow general cooking instructions."];
+const generateInstructions = (cookingMethod, ingredients) => {
+  let instructions = [];
+
+  switch (cookingMethod) {
+    case "Baking":
+      instructions = [
+        "Preheat oven to 375°F (190°C).",
+        "Lightly grease a baking dish with butter or cooking spray.",
+        "Combine all dry ingredients in a large bowl, whisking to ensure no lumps.",
+        "In a separate bowl, mix all wet ingredients until well combined.",
+        "Gradually add the wet ingredients to the dry ingredients, mixing until just combined. Be careful not to overmix.",
+        "Pour the batter or mixture into the prepared baking dish, spreading evenly.",
+        "Bake for 25-35 minutes, or until golden brown and a toothpick inserted into the center comes out clean.",
+        "Let cool on a wire rack for at least 10 minutes before serving."
+      ];
+      break;
+    case "Frying":
+      instructions = [
+        "Heat 2 tablespoons of oil in a large skillet or frying pan over medium-high heat.",
+        "Carefully add the ingredients to the hot oil in a single layer, ensuring not to overcrowd the pan.",
+        "Fry for 3-5 minutes per side, or until golden brown and cooked through. Adjust heat as needed to prevent burning.",
+        "Remove from pan and place on a plate lined with paper towels to drain excess oil.",
+        "Season with salt and pepper to taste and serve immediately."
+      ];
+      break;
+    case "Boiling":
+      instructions = [
+        "Fill a large pot with water and bring to a rolling boil over high heat.",
+        "Add a pinch of salt to the boiling water (optional, but recommended for pasta and vegetables).",
+        "Carefully add the ingredients to the boiling water. Reduce heat slightly to maintain a gentle boil.",
+        "Cook for 8-12 minutes, or until tender-crisp (for vegetables) or al dente (for pasta).",
+        "Drain thoroughly using a colander and serve hot."
+      ];
+      break;
+    case "Roasting":
+      instructions = [
+        "Preheat oven to 400°F (200°C).",
+        "Chop vegetables into uniform pieces for even cooking.",
+        "In a large bowl, toss the ingredients with 2 tablespoons of olive oil, salt, pepper, and your favorite herbs (e.g., rosemary, thyme).",
+        "Spread the seasoned ingredients in a single layer on a baking sheet.",
+        "Roast for 20-30 minutes, flipping halfway through, until tender and slightly caramelized.",
+        "Serve hot as a side dish or main course."
+      ];
+      break;
+    case "Grilling":
+      instructions = [
+        "Preheat grill to medium-high heat (around 400°F / 200°C). Clean and oil the grill grates.",
+        "Brush ingredients with olive oil and season generously with salt, pepper, and desired spices.",
+        "Place ingredients directly on the hot grill grates.",
+        "Grill for 4-6 minutes per side, or until desired doneness is reached and grill marks appear.",
+        "For thicker cuts, reduce heat to medium and continue grilling until cooked through.",
+        "Remove from grill and let rest for a few minutes before slicing or serving."
+      ];
+      break;
+    case "Steaming":
+      instructions = [
+        "Fill a pot with about 1 inch of water and bring to a boil. Place a steamer basket inside the pot, ensuring it doesn't touch the water.",
+        "Add the ingredients to the steamer basket in a single layer.",
+        "Cover the pot tightly and steam for 5-10 minutes, or until tender-crisp. Cooking time will vary based on the type and size of ingredients.",
+        "Carefully remove the steamer basket and serve the steamed ingredients immediately.",
+        "Season with a drizzle of olive oil, lemon juice, or a sprinkle of herbs if desired."
+      ];
+      break;
+    case "Stewing":
+      instructions = [
+        "In a large pot or Dutch oven, heat 1 tablespoon of oil over medium-high heat.",
+        "Brown any meat ingredients on all sides, then remove from the pot and set aside.",
+        "Add chopped vegetables (e.g., onions, carrots, celery) to the pot and sauté until softened, about 5-7 minutes.",
+        "Return the browned meat to the pot. Add 4 cups of broth or water, along with herbs and spices (e.g., bay leaf, thyme, paprika).",
+        "Bring to a simmer, then reduce heat to low, cover, and cook for 1.5-2 hours, or until the meat is fork-tender.",
+        "Adjust seasoning to taste before serving hot."
+      ];
+      break;
+    case "Braising":
+      instructions = [
+        "Preheat oven to 325°F (160°C).",
+        "Season meat (e.g., beef short ribs, pork shoulder) generously with salt and pepper.",
+        "In an oven-safe pot or Dutch oven, heat 2 tablespoons of oil over medium-high heat. Sear the meat on all sides until deeply browned. Remove and set aside.",
+        "Add chopped aromatics (e.g., onions, garlic, carrots) to the pot and cook until softened.",
+        "Deglaze the pot with 1 cup of red wine or broth, scraping up any browned bits from the bottom.",
+        "Return the meat to the pot. Add enough liquid (broth, stock) to come halfway up the sides of the meat. Add herbs (e.g., thyme, rosemary).",
+        "Bring to a simmer on the stovetop, then cover tightly and transfer to the preheated oven.",
+        "Braise for 2-3 hours, or until the meat is incredibly tender and easily pulls apart.",
+        "Remove meat, reduce sauce if desired, and serve."
+      ];
+      break;
+    case "Poaching":
+      instructions = [
+        "Choose a liquid for poaching (e.g., water, broth, wine, milk) and pour it into a shallow pan or skillet.",
+        "Add any desired aromatics to the liquid (e.g., lemon slices, herbs, peppercorns).",
+        "Bring the liquid to a gentle simmer over medium heat. Do not let it boil vigorously.",
+        "Carefully place the ingredients (e.g., chicken breast, fish fillets, eggs) into the simmering liquid.",
+        "Poach for 5-10 minutes, or until cooked through. Cooking time will depend on the thickness of the ingredient.",
+        "Remove the poached item with a slotted spoon and serve immediately, perhaps with a drizzle of the poaching liquid."
+      ];
+      break;
+    case "Sautéing":
+      instructions = [
+        "Heat 1-2 tablespoons of olive oil or butter in a large skillet over medium-high heat until shimmering.",
+        "Add chopped or sliced ingredients (e.g., vegetables, small pieces of meat) to the hot pan in a single layer.",
+        "Sauté for 5-8 minutes, stirring frequently, until tender-crisp and lightly browned.",
+        "Season with salt, pepper, and any desired herbs or spices during the last minute of cooking.",
+        "Serve immediately as a side dish or incorporated into a larger meal."
+      ];
+      break;
+    case "Stir-frying":
+      instructions = [
+        "Prepare all ingredients by chopping them into uniform, bite-sized pieces. This ensures even cooking.",
+        "Heat 1-2 tablespoons of high-smoke-point oil (e.g., vegetable, peanut, or sesame oil) in a large wok or skillet over high heat until it just begins to smoke.",
+        "Add harder vegetables (e.g., carrots, broccoli) first and stir-fry for 2-3 minutes.",
+        "Add protein (e.g., chicken, beef, tofu) and stir-fry until nearly cooked through, breaking up any clumps.",
+        "Add softer vegetables (e.g., bell peppers, snap peas) and stir-fry for another 1-2 minutes.",
+        "Pour in your desired sauce (e.g., soy sauce, oyster sauce, ginger-garlic sauce) and toss to coat all ingredients.",
+        "Cook for 1-2 minutes more, allowing the sauce to thicken slightly and flavors to meld.",
+        "Serve immediately over rice or noodles."
+      ];
+      break;
+    default:
+      instructions = [
+        "Prepare ingredients as needed.",
+        "Cook using a suitable method until done.",
+        "Season to taste and serve."
+      ];
+  }
+
+  return instructions;
 };
 
 // Enhanced recipe generation with rule-based system
@@ -137,7 +203,7 @@ const generateRecipe = async (req, res) => {
     const missingIngredients = ingredients.filter(ing => !availableIngredientNames.includes(ing.toLowerCase()));
 
     // Generate instructions based on cooking method
-    const instructions = generateInstructions(cookingMethod);
+    const instructions = generateInstructions(cookingMethod, ingredients);
 
     // Rule-based recipe name generation
     const generateRecipeName = (ingredients, cookingMethod, cuisine) => {
