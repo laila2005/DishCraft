@@ -35,7 +35,8 @@ export const AuthProvider = ({ children }) => {
   // Function to check authentication status and fetch user data
   const checkAuth = useCallback(async () => {
     setLoading(true); // Start loading when checking auth
-    if (token) {
+    const storedToken = localStorage.getItem('dishcraft_token');
+    if (storedToken) {
       try {
         const backendUrl = getBackendUrl();
         console.log('AuthContext: Checking auth with backend:', `${backendUrl}/api/auth/me`);
@@ -43,6 +44,7 @@ export const AuthProvider = ({ children }) => {
         // Make a request to the /api/auth/me endpoint to validate the token
         const response = await axios.get(`${backendUrl}/api/auth/me`);
         setUser(response.data.user); // Set user data if token is valid
+        setToken(storedToken); // Ensure token state is consistent with localStorage
         console.log("AuthContext: Auth check successful, user:", response.data.user.email);
       } catch (error) {
         console.error('AuthContext: Auth check failed:', error.response?.data?.message || error.message);
@@ -56,11 +58,12 @@ export const AuthProvider = ({ children }) => {
     } else {
       // No token found, so not authenticated
       setUser(null);
+      setToken(null);
       setLoading(false); // End loading if no token
     }
-  }, [token]); // Re-run if token changes
+  }, []); // No dependency on token here, as we read from localStorage directly
 
-  // Run auth check on component mount (once) and when token changes
+  // Run auth check on component mount (once)
   useEffect(() => {
     checkAuth();
   }, [checkAuth]); // Dependency array ensures it runs when checkAuth is stable

@@ -7,7 +7,7 @@ import './App.css';
 
 // Main App Component (wrapped with authentication)
 function AppContent() {
-  const { user, isAuthenticated, loading: authLoading, logout } = useAuth(); // <-- Added logout here
+  const { user, isAuthenticated, loading: authLoading, logout } = useAuth();
 
   // Existing state for ingredients and recipe generation
   const [ingredients, setIngredients] = useState([]);
