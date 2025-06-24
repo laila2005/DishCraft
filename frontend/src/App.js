@@ -8,7 +8,7 @@ import './App.css';
 // Main App Component (wrapped with authentication)
 function AppContent() {
   const { user, isAuthenticated, loading: authLoading, logout } = useAuth();
-  const [showAuthForms, setShowAuthForms] = useState(false); 
+  const [showAuthForms, setShowAuthForms] = useState(false);
 
   const [ingredients, setIngredients] = useState([]);
   const [loadingIngredients, setLoadingIngredients] = useState(true);
@@ -22,6 +22,14 @@ function AppContent() {
   const [ingredientInput, setIngredientInput] = useState('');
   const [filteredIngredients, setFilteredIngredients] = useState([]);
   const [showIngredientSuggestions, setShowIngredientSuggestions] = useState(false);
+
+  // Recipe generation options
+  const [recipeOptions, setRecipeOptions] = useState({
+    cookingMethod: 'Stir-frying',
+    cuisine: 'Italian',
+    difficulty: 'Medium',
+    prepTime: '20-30 minutes'
+  });
 
   const [mealPlans, setMealPlans] = useState([]);
   const [loadingMealPlans, setLoadingMealPlans] = useState(false);
@@ -37,13 +45,14 @@ function AppContent() {
       try {
         setLoadingIngredients(true);
         setErrorIngredients(null);
-        
+
         const backendUrl = getBackendUrl();
         console.log('Fetching ingredients from:', `${backendUrl}/api/ingredients`);
-        
+
         const response = await axios.get(`${backendUrl}/api/ingredients`);
-        
-        const ingredientsData = response.data?.data;
+
+        // Check if response.data has a 'data' property and if it's an array
+        const ingredientsData = response.data.data || response.data;
         if (Array.isArray(ingredientsData)) {
           setIngredients(ingredientsData);
           console.log(`Successfully loaded ${ingredientsData.length} ingredients`);
@@ -65,21 +74,15 @@ function AppContent() {
   }, []);
 
   const handleIngredientInputChange = useCallback((e) => {
-    const input = e.target.value;
-    setIngredientInput(input);
-    
-    if (input.length > 0) {
-      if (Array.isArray(ingredients)) {
-        const filtered = ingredients.filter(ing => 
-          ing.name && ing.name.toLowerCase().includes(input.toLowerCase())
-        );
-        setFilteredIngredients(filtered);
-        setShowIngredientSuggestions(true);
-      } else {
-        console.warn('Ingredients is not an array when filtering:', ingredients);
-        setFilteredIngredients([]);
-        setShowIngredientSuggestions(false);
-      }
+    const value = e.target.value;
+    setIngredientInput(value);
+
+    if (value.trim()) {
+      const filtered = ingredients.filter(ingredient =>
+        ingredient.name.toLowerCase().includes(value.toLowerCase())
+      );
+      setFilteredIngredients(filtered);
+      setShowIngredientSuggestions(true);
     } else {
       setFilteredIngredients([]);
       setShowIngredientSuggestions(false);
@@ -87,91 +90,128 @@ function AppContent() {
   }, [ingredients]);
 
   const addIngredient = useCallback((ingredientName) => {
-    setUserIngredients(prev => {
-      if (!prev.includes(ingredientName)) {
-        return [...prev, ingredientName];
-      }
-      return prev;
-    });
-    setIngredientInput('');
-    setShowIngredientSuggestions(false);
-  }, []);
+    if (ingredientName && !userIngredients.includes(ingredientName)) {
+      setUserIngredients(prev => [...prev, ingredientName]);
+      setIngredientInput('');
+      setShowIngredientSuggestions(false);
+    }
+  }, [userIngredients]);
 
   const removeIngredient = useCallback((ingredientName) => {
     setUserIngredients(prev => prev.filter(ing => ing !== ingredientName));
   }, []);
 
-  const generateRecipe = useCallback(async () => {
-    setLoadingRecipe(true);
-    setErrorRecipe(null);
-    
+  const handleRecipeOptionChange = (option, value) => {
+    setRecipeOptions(prev => ({
+      ...prev,
+      [option]: value
+    }));
+  };
+
+  const generateRecipe = async () => {
+    if (userIngredients.length === 0) {
+      alert('Please add at least one ingredient');
+      return;
+    }
+
     try {
-      const backendUrl = getBackendUrl();
+      setLoadingRecipe(true);
+      setErrorRecipe(null);
       console.log('Generating recipe with ingredients:', userIngredients);
-      
+
+      const backendUrl = getBackendUrl();
       const response = await axios.post(`${backendUrl}/api/generate-recipe`, {
         ingredients: userIngredients,
+        cookingMethod: recipeOptions.cookingMethod,
+        cuisine: recipeOptions.cuisine,
+        difficulty: recipeOptions.difficulty,
+        prepTime: recipeOptions.prepTime
       });
-      
-      setGeneratedRecipe(response.data.data);
-      console.log('Recipe generated successfully:', response.data.data.name);
+
+      setGeneratedRecipe(response.data);
     } catch (error) {
       console.error('Error generating recipe:', error);
       setErrorRecipe('Failed to generate recipe. Please try again.');
     } finally {
       setLoadingRecipe(false);
     }
-  }, [userIngredients]);
+  };
 
-  useEffect(() => {
-    const fetchMealPlans = async () => {
-      if (isAuthenticated && user) {
-        setLoadingMealPlans(true);
-        try {
-          const backendUrl = getBackendUrl();
-          const config = {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem('dishcraft_token')}`,
-            },
-          };
-          const response = await axios.get(`${backendUrl}/api/meal-plans`, config);
-          setMealPlans(response.data.data || []);
-        } catch (error) {
-          console.error('Error fetching meal plans:', error);
-          setErrorMealPlans('Failed to load meal plans.');
-          setMealPlans([]);
-        } finally {
-          setLoadingMealPlans(false);
+  const fetchMealPlans = async () => {
+    try {
+      setLoadingMealPlans(true);
+      setErrorMealPlans(null);
+
+      const backendUrl = getBackendUrl();
+      const token = localStorage.getItem('dishcraft_token');
+      const response = await axios.get(`${backendUrl}/api/meal-plans`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
         }
-      }
-    };
-    fetchMealPlans();
-  }, [isAuthenticated, user]);
+      });
 
-  const addMealPlan = useCallback(async () => {
-    if (!newMealPlanName.trim()) return;
-    
+      setMealPlans(response.data);
+    } catch (error) {
+      console.error('Error fetching meal plans:', error);
+      setErrorMealPlans('Failed to load meal plans');
+    } finally {
+      setLoadingMealPlans(false);
+    }
+  };
+
+  const createMealPlan = async () => {
+    if (!newMealPlanName.trim()) {
+      alert('Please enter a meal plan name');
+      return;
+    }
+
     try {
       const backendUrl = getBackendUrl();
-      const config = {
+      const token = localStorage.getItem('dishcraft_token');
+      const response = await axios.post(`${backendUrl}/api/meal-plans`, {
+        name: newMealPlanName,
+        description: 'Custom meal plan',
+        meals: []
+      }, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('dishcraft_token')}`,
-        },
-      };
-      const response = await axios.post(`${backendUrl}/api/meal-plans`, { name: newMealPlanName }, config);
-      setMealPlans(prev => [...prev, response.data.data]);
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      setMealPlans(prev => [...prev, response.data.mealPlan]);
       setNewMealPlanName('');
     } catch (error) {
-      console.error('Error adding meal plan:', error);
+      console.error('Error creating meal plan:', error);
+      alert('Failed to create meal plan');
     }
-  }, [newMealPlanName]);
+  };
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchMealPlans();
+    }
+  }, [isAuthenticated]);
 
   if (authLoading) {
     return (
       <div className="App">
-        <div className="loading">
-          <h2>Loading DishCraft...</h2>
-        </div>
+        <div className="loading">Loading...</div>
+      </div>
+    );
+  }
+
+  if (showAuthForms) {
+    return (
+      <div className="App">
+        <AuthForms onClose={() => setShowAuthForms(false)} />
+      </div>
+    );
+  }
+
+  if (isAuthenticated && user?.role === 'chef') {
+    return (
+      <div className="App">
+        <ChefDashboard />
       </div>
     );
   }
@@ -182,187 +222,213 @@ function AppContent() {
         <div className="header-content">
           <div className="header-left">
             <h1>DishCraft</h1>
+            <p>Generate Your Next Meal</p>
           </div>
-          <div className="user-menu">
+          <div className="main-navigation">
             {isAuthenticated ? (
-              <>
-                <p className="welcome-text">Welcome, {user?.name} ({user?.role})!</p>
+              <div className="user-info">
+                <span>Welcome, {user?.name || user?.email}!</span>
                 <button onClick={logout} className="logout-btn">Logout</button>
-              </>
+              </div>
             ) : (
-              <button onClick={() => setShowAuthForms(true)} className="login-btn">Login / Sign Up</button>
+              <button onClick={() => setShowAuthForms(true)} className="nav-btn">
+                Login / Sign Up
+              </button>
             )}
           </div>
         </div>
       </header>
 
       <main className="main-content">
-        {showAuthForms && !isAuthenticated ? (
-          <AuthForms onClose={() => setShowAuthForms(false)} />
-        ) : (
-          <>
-            <section className="ingredient-input-section">
-              <h2>Generate Your Next Meal</h2>
-              
-              <div className="connection-status">
-                <p>Backend: {getBackendUrl()}</p>
-                {errorIngredients && (
-                  <p className="error-message">⚠️ {errorIngredients}</p>
-                )}
-                {loadingIngredients && (
-                  <p className="loading">Loading ingredients...</p>
-                )}
-              </div>
-
-              <div className="ingredient-input-container">
-                <div className="input-wrapper">
-                  <input
-                    type="text"
-                    placeholder="Enter ingredients you have..."
-                    value={ingredientInput}
-                    onChange={handleIngredientInputChange}
-                    onFocus={() => setShowIngredientSuggestions(true)}
-                    onBlur={() => setTimeout(() => setShowIngredientSuggestions(false), 100)}
-                    className="ingredient-input"
-                  />
-                  <button onClick={() => addIngredient(ingredientInput)} className="add-ingredient-btn">Add Ingredient</button>
+        <div className="recipe-generator">
+          <h2>Generate Your Next Meal</h2>
+          <p className="generator-description">
+            Backend: {getBackendUrl()}
+          </p>
+          
+          {errorIngredients && (
+            <div className="error-message">
+              ⚠️ {errorIngredients}
+            </div>
+          )}
+          
+          <div className="ingredient-input-section">
+            <h3>Enter ingredients you have...</h3>
+            <div className="input-container">
+              <input
+                type="text"
+                value={ingredientInput}
+                onChange={handleIngredientInputChange}
+                placeholder="Enter ingredients you have..."
+                className="ingredient-input"
+              />
+              <button 
+                onClick={() => addIngredient(ingredientInput)}
+                className="nav-btn"
+                style={{ marginLeft: '10px' }}
+              >
+                Add Ingredient
+              </button>
+              {showIngredientSuggestions && filteredIngredients.length > 0 && (
+                <div className="ingredient-suggestions">
+                  {filteredIngredients.slice(0, 5).map((ingredient, index) => (
+                    <div
+                      key={index}
+                      className="suggestion-item"
+                      onClick={() => addIngredient(ingredient.name)}
+                    >
+                      {ingredient.name}
+                    </div>
+                  ))}
                 </div>
-                {showIngredientSuggestions && filteredIngredients.length > 0 && (
-                  <ul className="ingredient-suggestions">
-                    {filteredIngredients.map(ing => (
-                      <li key={ing._id} onMouseDown={() => addIngredient(ing.name)} className="suggestion-item">
-                        {ing.name}
-                      </li>
+              )}
+            </div>
+          </div>
+
+          <div className="selected-ingredients">
+            <h3>Selected Ingredients:</h3>
+            {userIngredients.length === 0 ? (
+              <p className="no-ingredients">No ingredients selected</p>
+            ) : (
+              <div className="ingredient-tags">
+                {userIngredients.map((ingredient, index) => (
+                  <span key={index} className="ingredient-tag">
+                    {ingredient}
+                    <button
+                      onClick={() => removeIngredient(ingredient)}
+                      className="remove-ingredient"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={generateRecipe}
+            disabled={loadingRecipe || userIngredients.length === 0}
+            className="generate-btn"
+          >
+            {loadingRecipe ? 'Generating Recipe...' : 'Generate Recipe'}
+          </button>
+
+          {errorRecipe && (
+            <div className="error-message">{errorRecipe}</div>
+          )}
+
+          {generatedRecipe && (
+            <div className="generated-recipe">
+              <h3>{generatedRecipe.name}</h3>
+              
+              {generatedRecipe.missingIngredients && generatedRecipe.missingIngredients.length > 0 && (
+                <div className="missing-ingredients">
+                  <h4>Missing Ingredients:</h4>
+                  <div className="missing-ingredient-tags">
+                    {generatedRecipe.missingIngredients.map((ingredient, index) => (
+                      <span key={index} className="missing-ingredient-tag">
+                        {ingredient}
+                      </span>
                     ))}
-                  </ul>
+                  </div>
+                </div>
+              )}
+
+              <div className="recipe-details">
+                <div className="detail-item">
+                  <strong>Cooking Time:</strong> {generatedRecipe.prepTime}
+                </div>
+                <div className="detail-item">
+                  <strong>Difficulty:</strong> {generatedRecipe.difficulty}
+                </div>
+                <div className="detail-item">
+                  <strong>Cuisine:</strong> {generatedRecipe.cuisine}
+                </div>
+                <div className="detail-item">
+                  <strong>Cooking Method:</strong> {generatedRecipe.cookingMethod}
+                </div>
+                {generatedRecipe.servings && (
+                  <div className="detail-item">
+                    <strong>Servings:</strong> {generatedRecipe.servings}
+                  </div>
+                )}
+                {generatedRecipe.calories && (
+                  <div className="detail-item">
+                    <strong>Calories:</strong> {generatedRecipe.calories}
+                  </div>
                 )}
               </div>
 
-              <div className="selected-ingredients">
-                <h3>Selected Ingredients:</h3>
-                <div className="ingredient-tags">
-                  {userIngredients.map(ing => (
-                    <span key={ing} className="ingredient-tag">
-                      {ing}
-                      <button onClick={() => removeIngredient(ing)} className="remove-ingredient-btn">×</button>
-                    </span>
+              <div className="recipe-ingredients">
+                <h4>Ingredients:</h4>
+                <div className="ingredient-list">
+                  {generatedRecipe.ingredients.map((ingredient, index) => (
+                    <div key={index} className="ingredient-item">
+                      <span className="ingredient-quantity">{ingredient.quantity}</span>
+                      <span className="ingredient-name">{ingredient.name}</span>
+                    </div>
                   ))}
                 </div>
               </div>
 
-              <div className="generate-section">
-                <button 
-                  onClick={generateRecipe} 
-                  disabled={loadingRecipe || userIngredients.length === 0}
-                  className="generate-recipe-btn"
-                >
-                  {loadingRecipe ? 'Generating...' : 'Generate Recipe'}
-                </button>
+              <div className="recipe-instructions">
+                <h4>Instructions:</h4>
+                <ol className="instructions-list">
+                  {generatedRecipe.instructions.map((instruction, index) => (
+                    <li key={index} className="instruction-step">
+                      {instruction}
+                    </li>
+                  ))}
+                </ol>
               </div>
+            </div>
+          )}
+        </div>
 
-              {errorRecipe && <p className="error-message">{errorRecipe}</p>}
+        {isAuthenticated && (
+          <div className="meal-plans-section">
+            <h2>Meal Plans</h2>
+            
+            <div className="create-meal-plan">
+              <input
+                type="text"
+                value={newMealPlanName}
+                onChange={(e) => setNewMealPlanName(e.target.value)}
+                placeholder="Enter meal plan name"
+                className="meal-plan-input"
+              />
+              <button onClick={createMealPlan} className="create-meal-plan-btn">
+                Create Meal Plan
+              </button>
+            </div>
 
-              {generatedRecipe && (
-                <div className="generated-recipe-card">
-                  <h3>{generatedRecipe.name}</h3>
-                  <p className="recipe-description">{generatedRecipe.description}</p>
-                  <div className="recipe-info">
-                    <div className="recipe-meta">
-                      <span>Cooking Time: {generatedRecipe.cookingTime}</span>
-                      <span>Difficulty: {generatedRecipe.difficulty}</span>
-                    </div>
-                    {generatedRecipe.missingIngredients && generatedRecipe.missingIngredients.length > 0 && (
-                      <div className="ingredient-match-info">
-                        <h4>Missing Ingredients:</h4>
-                        <div className="missing-ingredient-tags">
-                          {generatedRecipe.missingIngredients.map((ing, index) => (
-                            <span key={index} className="missing-ingredient-tag">{ing}</span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <div className="recipe-components">
-                    <h4>Ingredients:</h4>
-                    <div className="components-grid">
-                      {generatedRecipe.ingredients.map((ing, index) => (
-                        <div key={index} className="component-item"><strong>{ing.quantity} {ing.unit}</strong> {ing.item}</div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="recipe-instructions">
-                    <h4>Instructions:</h4>
-                    <ol className="instructions-list">
-                      {generatedRecipe.instructions.map((step, index) => (
-                        <li key={index} className="instruction-step">{step}</li>
-                      ))}
-                    </ol>
-                  </div>
-                </div>
-              )}
-            </section>
-
-            <section className="meal-planning-section">
-              <h2>Your Meal Plans</h2>
-              <div className="create-meal-plan">
-                <h3>Create New Meal Plan</h3>
-                <div className="create-meal-plan-form">
-                  <input
-                    type="text"
-                    placeholder="New Meal Plan Name"
-                    value={newMealPlanName}
-                    onChange={(e) => setNewMealPlanName(e.target.value)}
-                    className="meal-plan-name-input"
-                  />
-                  <button onClick={addMealPlan} className="create-plan-btn">Add Meal Plan</button>
-                </div>
-              </div>
-              {loadingMealPlans && <p className="loading">Loading meal plans...</p>}
-              {errorMealPlans && <p className="error-message">{errorMealPlans}</p>}
-              <div className="meal-plans-grid">
-                {mealPlans.length === 0 && !loadingMealPlans && <p className="empty-plan">No meal plans yet. Add one!</p>}
-                {mealPlans.map(plan => (
-                  <div key={plan._id} className="meal-plan-card">
-                    <div className="meal-plan-header">
+            {loadingMealPlans ? (
+              <div className="loading">Loading meal plans...</div>
+            ) : errorMealPlans ? (
+              <div className="error-message">{errorMealPlans}</div>
+            ) : (
+              <div className="meal-plans-list">
+                {mealPlans.length === 0 ? (
+                  <p>No meal plans found</p>
+                ) : (
+                  mealPlans.map((plan, index) => (
+                    <div key={index} className="meal-plan-item">
                       <h3>{plan.name}</h3>
-                      <button className="delete-plan-btn">Delete</button>
+                      <p>{plan.description}</p>
                     </div>
-                    <div className="meal-plan-content">
-                      <ul className="meals-list">
-                        {plan.meals && plan.meals.length > 0 ? (
-                          plan.meals.map((meal, mealIndex) => (
-                            <li key={mealIndex} className="meal-item">
-                              <div className="meal-info">
-                                <span className="meal-title">{meal.recipeName}</span>
-                                <span className="meal-meta">{meal.mealType} - {new Date(meal.date).toLocaleDateString()}</span>
-                              </div>
-                            </li>
-                          ))
-                        ) : (
-                          <li className="empty-plan">No meals added yet.</li>
-                        )}
-                      </ul>
-                    </div>
-                    <div className="meal-plan-stats">
-                      <span className="meal-count">{plan.meals ? plan.meals.length : 0} meals</span>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
-            </section>
-
-            {user?.role === 'chef' && (
-              <section className="chef-dashboard-section">
-                <ChefDashboard />
-              </section>
             )}
-          </>
+          </div>
         )}
       </main>
     </div>
   );
 }
 
+// Main App wrapper with AuthProvider
 function App() {
   return (
     <AuthProvider>

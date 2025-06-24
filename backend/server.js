@@ -259,7 +259,7 @@ app.post("/api/login", async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: "24h" }
     );
-    res.status(200).json({ message: "Logged in successfully.", token, role: user.role });
+    res.status(200).json({ message: "Logged in successfully.", token, role: user.role, user: { _id: user._id, name: user.name, email: user.email, role: user.role } });
   } catch (error) {
     console.error("Error logging in:", error);
     res.status(500).json({ message: "Error logging in", error: error.message });
@@ -284,7 +284,7 @@ app.get("/api/auth/me", authenticateToken, async (req, res) => {
 app.get("/api/ingredients", async (req, res) => {
   try {
     const ingredients = await Ingredient.find({});
-    res.status(200).json(ingredients);
+    res.status(200).json({ data: ingredients }); // Wrap ingredients in a 'data' object
   } catch (error) {
     console.error("Error fetching ingredients:", error);
     res.status(500).json({ message: "Error fetching ingredients", error: error.message });
