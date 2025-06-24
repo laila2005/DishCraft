@@ -6,32 +6,32 @@ const authenticateToken = async (req, res, next) => {
   try {
     // Get token from header
     const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+    const token = authHeader && authHeader.split(" ")[1]; // Bearer TOKEN
 
     if (!token) {
-      return res.status(401).json({ 
-        success: false, 
-        message: "Access denied. No token provided." 
+      return res.status(401).json({
+        success: false,
+        message: "Access denied. No token provided.",
       });
     }
 
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
+
     // Get user from database
-    const user = await User.findById(decoded.userId).select('-password');
-    
+    const user = await User.findById(decoded.userId).select("-password");
+
     if (!user) {
-      return res.status(401).json({ 
-        success: false, 
-        message: "Invalid token. User not found." 
+      return res.status(401).json({
+        success: false,
+        message: "Invalid token. User not found.",
       });
     }
 
     if (!user.isActive) {
-      return res.status(401).json({ 
-        success: false, 
-        message: "Account is deactivated." 
+      return res.status(401).json({
+        success: false,
+        message: "Account is deactivated.",
       });
     }
 
@@ -40,74 +40,65 @@ const authenticateToken = async (req, res, next) => {
     next();
   } catch (error) {
     console.error("Auth middleware error:", error);
-    
-    if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ 
-        success: false, 
-        message: "Invalid token." 
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid token.",
       });
     }
-    
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ 
-        success: false, 
-        message: "Token expired." 
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({
+        success: false,
+        message: "Token expired.",
       });
     }
-    
-    res.status(500).json({ 
-      success: false, 
-      message: "Server error during authentication." 
+    res.status(500).json({
+      success: false,
+      message: "Server error during authentication.",
     });
   }
 };
 
-// Middleware to check if user is a chef
 const requireChef = (req, res, next) => {
-  if (req.user.role !== 'chef' && req.user.role !== 'admin') {
-    return res.status(403).json({ 
-      success: false, 
-      message: "Access denied. Chef privileges required." 
-    });
+  if (req.user && req.user.role === "chef") {
+    next();
+  } else {
+    res.status(403).json({ message: "Access denied. Chef role required." });
   }
-  next();
 };
 
-// Middleware to check if user is an admin
 const requireAdmin = (req, res, next) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ 
-      success: false, 
-      message: "Access denied. Admin privileges required." 
-    });
+  if (req.user && req.user.role === "admin") {
+    next();
+  } else {
+    res.status(403).json({ message: "Access denied. Admin role required." });
   }
-  next();
 };
 
-// Optional authentication (doesn't fail if no token)
-const optionalAuth = async (req, res, next) => {
-  try {
-    const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.split(' ')[1];
+const optionalAuth = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.split(" ")[1];
 
-    if (token) {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await User.findById(decoded.userId).select('-password');
-      if (user && user.isActive) {
-        req.user = user;
+  if (token) {
+    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+      if (err) {
+        // Token is invalid or expired, but we still proceed without user info
+        next();
+      } else {
+        User.findById(decoded.userId).select("-password")
+          .then(user => {
+            req.user = user;
+            next();
+          })
+          .catch(err => {
+            console.error("Error fetching user in optionalAuth:", err);
+            next(); // Proceed even if user fetching fails
+          });
       }
-    }
-    
-    next();
-  } catch (error) {
-    // Continue without authentication
-    next();
+    });
+  } else {
+    next(); // No token, proceed without user info
   }
 };
 
-module.exports = {
-  authenticateToken,
-  requireChef,
-  requireAdmin,
-  optionalAuth
-};
+module.exports = { authenticateToken, requireChef, requireAdmin, optionalAuth };

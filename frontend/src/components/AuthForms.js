@@ -68,105 +68,87 @@ const AuthForms = ({ onClose }) => {
   return (
     <div className="auth-overlay">
       <div className="auth-modal">
+        <button className="close-btn" onClick={onClose}>×</button>
+        
         <div className="auth-header">
-          <h2>{isLogin ? '🔐 Welcome Back!' : '🎉 Join DishCraft!'}</h2>
-          <button className="close-btn" onClick={onClose}>✕</button>
+          <h2>{isLogin ? 'Login' : 'Sign Up'}</h2>
+          <p>{isLogin ? 'Welcome back!' : 'Create your account'}</p>
         </div>
 
-        <div className="auth-content">
-          <div className="auth-tabs">
-            <button 
-              className={`tab-btn ${isLogin ? 'active' : ''}`}
-              onClick={() => setIsLogin(true)}
-            >
-              Login
-            </button>
-            <button 
-              className={`tab-btn ${!isLogin ? 'active' : ''}`}
-              onClick={() => setIsLogin(false)}
-            >
-              Sign Up
-            </button>
-          </div>
-
-          <form onSubmit={handleSubmit} className="auth-form">
-            {!isLogin && (
-              <div className="form-group">
-                <label htmlFor="name">👤 Full Name</label>
-                <input
-                  type="text"
-                  id="name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  required={!isLogin}
-                  placeholder="Enter your full name"
-                />
-              </div>
-            )}
-
+        <form onSubmit={handleSubmit} className="auth-form">
+          {!isLogin && (
             <div className="form-group">
-              <label htmlFor="email">📧 Email Address</label>
+              <label htmlFor="name">Name</label>
               <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
+                type="text"
+                id="name"
+                name="name"
+                value={formData.name}
                 onChange={handleInputChange}
-                required
-                placeholder="Enter your email"
+                required={!isLogin}
+                placeholder="Enter your name"
               />
             </div>
+          )}
 
+          <div className="form-group">
+            <label htmlFor="email">Email</label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              value={formData.email}
+              onChange={handleInputChange}
+              required
+              placeholder="Enter your email"
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="password">Password</label>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              value={formData.password}
+              onChange={handleInputChange}
+              required
+              placeholder="Enter your password"
+              minLength="6"
+            />
+          </div>
+
+          {!isLogin && (
             <div className="form-group">
-              <label htmlFor="password">🔒 Password</label>
-              <input
-                type="password"
-                id="password"
-                name="password"
-                value={formData.password}
+              <label htmlFor="role">Role</label>
+              <select
+                id="role"
+                name="role"
+                value={formData.role}
                 onChange={handleInputChange}
                 required
-                placeholder="Enter your password"
-                minLength="6"
-              />
+              >
+                <option value="user">User</option>
+                <option value="chef">Chef</option>
+              </select>
             </div>
+          )}
 
-            {!isLogin && (
-              <div className="form-group">
-                <label htmlFor="role">👨‍🍳 Account Type</label>
-                <select
-                  id="role"
-                  name="role"
-                  value={formData.role}
-                  onChange={handleInputChange}
-                >
-                  <option value="user">🍽️ Food Lover (User)</option>
-                  <option value="chef">👨‍🍳 Chef</option>
-                </select>
-              </div>
-            )}
+          {error && <div className="error-message">{error}</div>}
+          {success && <div className="success-message">{success}</div>}
 
-            {error && <div className="error-message">❌ {error}</div>}
-            {success && <div className="success-message">✅ {success}</div>}
+          <button type="submit" disabled={loading} className="submit-btn">
+            {loading ? 'Processing...' : (isLogin ? 'Login' : 'Sign Up')}
+          </button>
+        </form>
 
-            <button 
-              type="submit" 
-              className="auth-submit-btn"
-              disabled={loading}
-            >
-              {loading ? '⏳ Processing...' : (isLogin ? '🔐 Login' : '🎉 Create Account')}
+        <div className="auth-toggle">
+          <p>
+            {isLogin ? "Don't have an account? " : "Already have an account? "}
+            <button type="button" onClick={toggleMode} className="toggle-btn">
+              {isLogin ? 'Sign Up' : 'Login'}
             </button>
-          </form>
-
-          <div className="auth-footer">
-            <p>
-              {isLogin ? "Don't have an account? " : "Already have an account? "}
-              <button className="toggle-btn" onClick={toggleMode}>
-                {isLogin ? 'Sign up here' : 'Login here'}
-              </button>
-            </p>
-          </div>
+          </p>
         </div>
       </div>
     </div>

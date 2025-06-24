@@ -27,34 +27,24 @@ const userSchema = new mongoose.Schema({
     enum: ["user", "chef", "admin"],
     default: "user",
   },
+  isActive: {
+    type: Boolean,
+    default: true,
+  },
   createdAt: {
     type: Date,
     default: Date.now,
   },
 });
 
-// Hash password before saving
+// Hash password before saving the user
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) {
     return next();
   }
-  
-  try {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-  } catch (error) {
-    next(error);
-  }
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+  next();
 });
-
-// Compare password
-userSchema.methods.matchPassword = async function (enteredPassword) {
-  try {
-    return await bcrypt.compare(enteredPassword, this.password);
-  } catch (error) {
-    throw new Error("Password comparison failed");
-  }
-};
 
 module.exports = mongoose.model("User", userSchema);

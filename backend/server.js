@@ -42,11 +42,10 @@ const connectDB = async () => {
     if (!process.env.MONGO_URI) {
       throw new Error("MONGO_URI is not defined in environment variables");
     }
-
     const conn = await mongoose.connect(process.env.MONGO_URI);
     console.log(`MongoDB Connected: ${conn.connection.host}`);
   } catch (err) {
-    console.error("MongoDB connection error:", err.message);
+    console.error(`MongoDB connection error: ${err.message}`);
     process.exit(1);
   }
 };
@@ -60,587 +59,356 @@ const generateInstructions = (cookingMethod) => {
     "Baking": [
       "Preheat oven to specified temperature.",
       "Prepare baking dish as instructed.",
-      "Combine ingredients in a bowl.",
-      "Pour mixture into baking dish.",
-      "Bake for the recommended time until golden brown.",
-      "Let cool before serving.",
+      "Bake until golden brown and cooked through.",
+      "Let cool before serving."
     ],
     "Frying": [
       "Heat oil in a pan over medium-high heat.",
-      "Add ingredients to the hot oil.",
-      "Fry until crispy and cooked through, turning occasionally.",
-      "Remove from pan and drain excess oil on paper towels.",
-      "Serve hot.",
-    ],
-    "Grilling": [
-      "Preheat grill to medium-high heat.",
-      "Brush ingredients with oil and season.",
-      "Place on grill and cook for recommended time, turning once.",
-      "Remove from grill and let rest before serving.",
+      "Add ingredients and stir-fry until cooked.",
+      "Season to taste and serve immediately."
     ],
     "Boiling": [
       "Bring a pot of water to a rolling boil.",
-      "Add ingredients to boiling water.",
-      "Cook until tender or desired consistency.",
-      "Drain water and serve.",
+      "Add ingredients and cook until tender.",
+      "Drain and serve."
     ],
     "Roasting": [
       "Preheat oven to specified temperature.",
-      "Toss ingredients with oil and seasonings on a baking sheet.",
-      "Roast until tender and caramelized, flipping halfway.",
-      "Serve immediately.",
+      "Toss ingredients with oil and seasonings.",
+      "Roast until tender and slightly caramelized."
+    ],
+    "Grilling": [
+      "Preheat grill to medium-high heat.",
+      "Brush ingredients with oil and seasonings.",
+      "Grill until cooked through and grill marks appear."
     ],
     "Steaming": [
-      "Fill a pot with an inch or two of water and bring to a simmer.",
-      "Place ingredients in a steamer basket over the simmering water.",
-      "Cover and steam until tender-crisp.",
-      "Serve immediately.",
+      "Bring water to a boil in a pot with a steamer basket.",
+      "Place ingredients in the steamer basket.",
+      "Steam until tender-crisp."
     ],
-    "Sautéing": [
-      "Heat a small amount of oil or butter in a skillet over medium-high heat.",
-      "Add ingredients and cook quickly, stirring frequently, until tender and lightly browned.",
-      "Serve immediately.",
+    "Stewing": [
+      "Brown ingredients in a pot.",
+      "Add liquid and simmer until tender.",
+      "Season and serve hot."
     ],
     "Braising": [
-      "Sear meat or vegetables in a pot until browned.",
-      "Add liquid (broth, wine) to cover partially.",
-      "Bring to a simmer, then cover and cook on low heat or in oven until tender.",
-      "Serve with the cooking liquid.",
+      "Sear ingredients in a pot until browned.",
+      "Add liquid and cover, then simmer gently until tender.",
+      "Reduce sauce and serve."
+    ],
+    "Poaching": [
+      "Gently simmer ingredients in liquid until cooked through.",
+      "Remove from liquid and serve."
+    ],
+    "Sautéing": [
+      "Heat a small amount of fat in a pan over medium-high heat.",
+      "Add ingredients and cook quickly until tender-crisp.",
+      "Season and serve."
+    ],
+    "Stir-frying": [
+      "Heat oil in a wok or large pan over high heat.",
+      "Add ingredients in order of cooking time required.",
+      "Stir constantly until all ingredients are cooked through.",
+      "Season to taste and serve immediately."
     ]
   };
-
-  return instructions[cookingMethod] || [
-    "Prepare ingredients as needed.",
-    "Cook using a suitable method until done.",
-    "Season to taste and serve.",
-  ];
+  return instructions[cookingMethod] || ["Follow general cooking instructions."];
 };
 
-const estimateCookingTime = (cookingMethod) => {
-  const times = {
-    "Baking": "30-45 minutes",
-    "Frying": "10-20 minutes",
-    "Grilling": "15-25 minutes",
-    "Boiling": "5-15 minutes",
-    "Roasting": "40-60 minutes",
-    "Steaming": "10-20 minutes",
-    "Sautéing": "5-10 minutes",
-    "Braising": "2-4 hours"
-  };
+// Enhanced recipe generation with rule-based system
+const generateRecipe = async (req, res) => {
+  const { ingredients, cookingMethod, cuisine, difficulty, prepTime } = req.body;
 
-  return times[cookingMethod] || "20-30 minutes";
-};
+  // Basic validation
+  if (!ingredients || !Array.isArray(ingredients) || ingredients.length === 0) {
+    return res.status(400).json({ message: "Ingredients are required." });
+  }
+  if (!cookingMethod) {
+    return res.status(400).json({ message: "Cooking method is required." });
+  }
 
-const determineDifficulty = (cookingMethod) => {
-  const difficulties = {
-    "Boiling": "Easy",
-    "Steaming": "Easy",
-    "Sautéing": "Easy",
-    "Frying": "Medium",
-    "Grilling": "Medium",
-    "Baking": "Medium",
-    "Roasting": "Hard",
-    "Braising": "Hard"
-  };
-
-  return difficulties[cookingMethod] || "Medium";
-};
-
-// Health check endpoint (should be first)
-app.get("/api/health", (req, res) => {
-  res.status(200).json({ 
-    success: true, 
-    message: "Server is running",
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    mongoConnected: mongoose.connection.readyState === 1
-  });
-});
-
-// Auth Routes with comprehensive error handling
-app.post("/api/auth/signup", async (req, res) => {
   try {
-    console.log("=== SIGNUP REQUEST ===");
-    console.log("Request body:", JSON.stringify(req.body, null, 2));
-    
-    const { name, email, password, role } = req.body;
+    // Fetch all available ingredients from the database
+    const availableIngredients = await Ingredient.find({});
+    const availableIngredientNames = availableIngredients.map(ing => ing.name.toLowerCase());
 
-    // Validate environment
-    if (!process.env.JWT_SECRET) {
-      console.error("JWT_SECRET is not configured");
-      return res.status(500).json({ 
-        success: false, 
-        message: "Server configuration error - JWT_SECRET missing" 
+    // Identify missing ingredients
+    const missingIngredients = ingredients.filter(ing => !availableIngredientNames.includes(ing.toLowerCase()));
+
+    // Generate instructions based on cooking method
+    const instructions = generateInstructions(cookingMethod);
+
+    // Rule-based recipe name generation
+    const generateRecipeName = (ingredients, cookingMethod, cuisine) => {
+      const mainIngredient = ingredients[0] || "Mixed";
+      const adjectives = ["Delicious", "Savory", "Flavorful", "Aromatic", "Perfect"];
+      const randomAdjective = adjectives[Math.floor(Math.random() * adjectives.length)];
+      
+      if (cuisine && cuisine !== "") {
+        return `${randomAdjective} ${cuisine} ${cookingMethod} ${mainIngredient}`;
+      }
+      return `${randomAdjective} ${cookingMethod} ${mainIngredient}`;
+    };
+
+    // Rule-based ingredient quantities
+    const generateIngredientQuantities = (ingredients) => {
+      const baseQuantities = {
+        "meat": ["1 lb", "500g", "2 cups diced"],
+        "vegetable": ["2 cups", "1 large", "3 medium"],
+        "grain": ["1 cup", "2 cups", "1.5 cups"],
+        "liquid": ["1 cup", "2 cups", "1/2 cup"],
+        "spice": ["1 tsp", "1 tbsp", "1/2 tsp"],
+        "default": ["1 cup", "2 pieces", "as needed"]
+      };
+
+      return ingredients.map(name => {
+        const lowerName = name.toLowerCase();
+        let quantity = "1 cup"; // default
+        let unit = "";
+
+        // Simple categorization rules
+        if (lowerName.includes("beef") || lowerName.includes("chicken") || lowerName.includes("pork") || lowerName.includes("fish")) {
+          quantity = baseQuantities.meat[Math.floor(Math.random() * baseQuantities.meat.length)];
+        } else if (lowerName.includes("pasta") || lowerName.includes("rice") || lowerName.includes("noodle")) {
+          quantity = baseQuantities.grain[Math.floor(Math.random() * baseQuantities.grain.length)];
+        } else if (lowerName.includes("oil") || lowerName.includes("sauce") || lowerName.includes("broth") || lowerName.includes("juice")) {
+          quantity = baseQuantities.liquid[Math.floor(Math.random() * baseQuantities.liquid.length)];
+        } else if (lowerName.includes("salt") || lowerName.includes("pepper") || lowerName.includes("garlic") || lowerName.includes("herb")) {
+          quantity = baseQuantities.spice[Math.floor(Math.random() * baseQuantities.spice.length)];
+        } else {
+          quantity = baseQuantities.vegetable[Math.floor(Math.random() * baseQuantities.vegetable.length)];
+        }
+
+        return { name, quantity, unit };
       });
-    }
+    };
 
-    // Validate required fields
-    if (!name || !email || !password) {
-      console.log("Missing required fields");
-      return res.status(400).json({ 
-        success: false, 
-        message: "Name, email, and password are required" 
-      });
-    }
+    // Enhanced recipe generation with rules
+    const generatedRecipe = {
+      name: generateRecipeName(ingredients, cookingMethod, cuisine),
+      ingredients: generateIngredientQuantities(ingredients),
+      instructions: instructions,
+      cookingMethod,
+      cuisine: cuisine || "International",
+      difficulty: difficulty || "Medium",
+      prepTime: prepTime || "20-30 minutes",
+      missingIngredients: missingIngredients,
+      servings: "4 people",
+      calories: "Approximately 350-450 per serving"
+    };
 
-    // Validate email format
-    const emailRegex = /^[\w-]+(?:\.[\w-]+)*@(?:[\w-]+\.)+[a-zA-Z]{2,7}$/;
-    if (!emailRegex.test(email)) {
-      console.log("Invalid email format:", email);
-      return res.status(400).json({ 
-        success: false, 
-        message: "Please enter a valid email address" 
-      });
-    }
+    res.status(200).json(generatedRecipe);
+  } catch (error) {
+    console.error("Error generating recipe:", error);
+    res.status(500).json({ message: "Error generating recipe", error: error.message });
+  }
+};
 
-    // Validate password length
-    if (password.length < 6) {
-      console.log("Password too short");
-      return res.status(400).json({ 
-        success: false, 
-        message: "Password must be at least 6 characters long" 
-      });
-    }
+// Routes
 
+// User authentication routes
+app.post("/api/register", async (req, res) => {
+  const { username, password, role } = req.body;
+
+  if (!username || !password || !role) {
+    return res.status(400).json({ message: "All fields are required." });
+  }
+
+  try {
     // Check if user already exists
-    console.log("Checking if user exists with email:", email);
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    const existingUser = await User.findOne({ email: username });
     if (existingUser) {
-      console.log("User already exists");
-      return res.status(400).json({ 
-        success: false, 
-        message: "User with this email already exists" 
-      });
+      return res.status(400).json({ message: "User already exists with this email." });
     }
 
-    // Create new user
-    console.log("Creating new user...");
-    const user = new User({
-      name: name.trim(),
-      email: email.toLowerCase().trim(),
-      password,
-      role: role || "user",
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = new User({ 
+      name: username.split('@')[0], // Use email prefix as name
+      email: username, 
+      password: hashedPassword, 
+      role 
     });
-
-    const savedUser = await user.save();
-    console.log("User created successfully with ID:", savedUser._id);
-
-    // Generate JWT
-    const token = jwt.sign(
-      { userId: savedUser._id, role: savedUser.role }, 
-      process.env.JWT_SECRET, 
-      { expiresIn: process.env.JWT_EXPIRE || "7d" }
-    );
-
-    console.log("JWT token generated successfully");
-
-    res.status(201).json({
-      success: true,
-      message: "User registered successfully",
-      token,
-      user: { 
-        id: savedUser._id, 
-        name: savedUser.name, 
-        email: savedUser.email, 
-        role: savedUser.role 
-      },
-    });
-
+    await newUser.save();
+    res.status(201).json({ message: "User registered successfully." });
   } catch (error) {
-    console.error("=== SIGNUP ERROR ===");
-    console.error("Error details:", error);
-    
-    // Handle mongoose validation errors
-    if (error.name === 'ValidationError') {
-      const messages = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({ 
-        success: false, 
-        message: messages.join(', ') 
-      });
-    }
-    
-    // Handle duplicate key error
+    console.error("Error registering user:", error);
     if (error.code === 11000) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "User with this email already exists" 
-      });
+      return res.status(400).json({ message: "User already exists with this email." });
     }
-    
-    res.status(500).json({ 
-      success: false, 
-      message: "Server error during signup. Please try again.",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    res.status(500).json({ message: "Error registering user", error: error.message });
   }
 });
 
-app.post("/api/auth/login", async (req, res) => {
+app.post("/api/login", async (req, res) => {
+  const { username, password } = req.body;
+
   try {
-    console.log("=== LOGIN REQUEST ===");
-    console.log("Request body:", JSON.stringify({ email: req.body.email }, null, 2));
-    
-    const { email, password } = req.body;
-
-    // Validate environment
-    if (!process.env.JWT_SECRET) {
-      console.error("JWT_SECRET is not configured");
-      return res.status(500).json({ 
-        success: false, 
-        message: "Server configuration error - JWT_SECRET missing" 
-      });
-    }
-
-    // Validate required fields
-    if (!email || !password) {
-      console.log("Missing email or password");
-      return res.status(400).json({ 
-        success: false, 
-        message: "Email and password are required" 
-      });
-    }
-
-    // Find user and include password for comparison
-    console.log("Looking for user with email:", email.toLowerCase());
-    const user = await User.findOne({ email: email.toLowerCase() }).select("+password");
-    
+    const user = await User.findOne({ email: username }).select('+password');
     if (!user) {
-      console.log("User not found");
-      return res.status(400).json({ 
-        success: false, 
-        message: "Invalid email or password" 
-      });
+      return res.status(400).json({ message: "Invalid credentials." });
     }
 
-    console.log("User found, checking password...");
-    
-    // Check password
-    const isMatch = await user.matchPassword(password);
+    const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      console.log("Password does not match");
-      return res.status(400).json({ 
-        success: false, 
-        message: "Invalid email or password" 
-      });
+      return res.status(400).json({ message: "Invalid credentials." });
     }
 
-    console.log("Password matches, generating token...");
-
-    // Generate JWT
     const token = jwt.sign(
-      { userId: user._id, role: user.role }, 
-      process.env.JWT_SECRET, 
-      { expiresIn: process.env.JWT_EXPIRE || "7d" }
+      { userId: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "24h" }
     );
-
-    console.log("Login successful for user:", user._id);
-
-    res.status(200).json({
-      success: true,
-      message: "Logged in successfully",
-      token,
-      user: { 
-        id: user._id, 
-        name: user.name, 
-        email: user.email, 
-        role: user.role 
-      },
-    });
-
+    res.status(200).json({ message: "Logged in successfully.", token, role: user.role });
   } catch (error) {
-    console.error("=== LOGIN ERROR ===");
-    console.error("Error details:", error);
-    
-    res.status(500).json({ 
-      success: false, 
-      message: "Server error during login. Please try again.",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    console.error("Error logging in:", error);
+    res.status(500).json({ message: "Error logging in", error: error.message });
   }
 });
 
-// Protected route for getting current user info
-app.get("/api/auth/me", authenticateToken, (req, res) => {
-  res.status(200).json({
-    success: true,
-    user: { 
-      id: req.user._id, 
-      name: req.user.name, 
-      email: req.user.email, 
-      role: req.user.role 
-    },
-  });
+// Add auth/me endpoint for token validation
+app.get("/api/auth/me", authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.status(200).json({ user });
+  } catch (error) {
+    console.error("Error fetching user:", error);
+    res.status(500).json({ message: "Error fetching user", error: error.message });
+  }
 });
 
-// Admin route example
-app.get("/api/admin", authenticateToken, requireAdmin, (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "Welcome, Admin!",
-    user: { 
-      id: req.user._id, 
-      name: req.user.name, 
-      email: req.user.email, 
-      role: req.user.role 
-    },
-  });
-});
-
-// Chef routes
-app.get("/api/chef/dashboard", authenticateToken, requireChef, (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "Welcome to the Chef Dashboard!",
-    user: { 
-      id: req.user._id, 
-      name: req.user.name, 
-      email: req.user.email, 
-      role: req.user.role 
-    },
-  });
-});
-
-// Ingredient Routes
+// Ingredient routes
 app.get("/api/ingredients", async (req, res) => {
   try {
     const ingredients = await Ingredient.find({});
-    res.status(200).json({ success: true, data: ingredients });
+    res.status(200).json(ingredients);
   } catch (error) {
     console.error("Error fetching ingredients:", error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ message: "Error fetching ingredients", error: error.message });
   }
 });
 
-app.post("/api/ingredients", authenticateToken, requireChef, async (req, res) => {
+app.post("/api/ingredients", authenticateToken, requireAdmin, async (req, res) => {
+  const { name } = req.body;
   try {
-    const newIngredient = new Ingredient(req.body);
+    const newIngredient = new Ingredient({ name });
     await newIngredient.save();
-    res.status(201).json({ success: true, data: newIngredient });
+    res.status(201).json({ message: "Ingredient added successfully.", ingredient: newIngredient });
   } catch (error) {
-    console.error("Error creating ingredient:", error);
-    res.status(400).json({ success: false, message: error.message });
+    console.error("Error adding ingredient:", error);
+    res.status(500).json({ message: "Error adding ingredient", error: error.message });
   }
 });
 
-// Recipe Component Routes
+// Recipe component routes
 app.get("/api/recipe-components", async (req, res) => {
   try {
-    const components = await RecipeComponent.find({});
-    res.status(200).json({ success: true, data: components });
+    const recipeComponents = await RecipeComponent.find({});
+    res.status(200).json(recipeComponents);
   } catch (error) {
     console.error("Error fetching recipe components:", error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ message: "Error fetching recipe components", error: error.message });
   }
 });
 
-app.post("/api/recipe-components", authenticateToken, requireChef, async (req, res) => {
+app.post("/api/recipe-components", authenticateToken, requireAdmin, async (req, res) => {
+  const { name, type } = req.body;
   try {
-    const newComponent = new RecipeComponent(req.body);
-    await newComponent.save();
-    res.status(201).json({ success: true, data: newComponent });
+    const newRecipeComponent = new RecipeComponent({ name, type });
+    await newRecipeComponent.save();
+    res.status(201).json({ message: "Recipe component added successfully.", recipeComponent: newRecipeComponent });
   } catch (error) {
-    console.error("Error creating recipe component:", error);
-    res.status(400).json({ success: false, message: error.message });
+    console.error("Error adding recipe component:", error);
+    res.status(500).json({ message: "Error adding recipe component", error: error.message });
   }
 });
 
-// Meal Routes
-app.get("/api/meals", authenticateToken, async (req, res) => {
+// Meal routes
+app.get("/api/meals", async (req, res) => {
   try {
-    const meals = await Meal.find({ user: req.user._id });
-    res.status(200).json({ success: true, data: meals });
+    const meals = await Meal.find({});
+    res.status(200).json(meals);
   } catch (error) {
     console.error("Error fetching meals:", error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ message: "Error fetching meals", error: error.message });
   }
 });
 
-app.post("/api/meals", authenticateToken, async (req, res) => {
+app.post("/api/meals", authenticateToken, requireAdmin, async (req, res) => {
+  const { name, description, ingredients, instructions, cookingMethod, cuisine, difficulty, prepTime } = req.body;
   try {
-    const newMeal = new Meal({ ...req.body, user: req.user._id });
+    const newMeal = new Meal({ name, description, ingredients, instructions, cookingMethod, cuisine, difficulty, prepTime });
     await newMeal.save();
-    res.status(201).json({ success: true, data: newMeal });
+    res.status(201).json({ message: "Meal added successfully.", meal: newMeal });
   } catch (error) {
-    console.error("Error creating meal:", error);
-    res.status(400).json({ success: false, message: error.message });
+    console.error("Error adding meal:", error);
+    res.status(500).json({ message: "Error adding meal", error: error.message });
   }
 });
 
-// Meal Plan Routes
-app.get("/api/meal-plans", authenticateToken, async (req, res) => {
+// Meal plan routes
+app.get("/api/meal-plans", async (req, res) => {
   try {
-    const mealPlans = await MealPlan.find({ user: req.user._id });
-    res.status(200).json({ success: true, data: mealPlans });
+    const mealPlans = await MealPlan.find({});
+    res.status(200).json(mealPlans);
   } catch (error) {
     console.error("Error fetching meal plans:", error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ message: "Error fetching meal plans", error: error.message });
   }
 });
 
-app.post("/api/meal-plans", authenticateToken, async (req, res) => {
+app.post("/api/meal-plans", authenticateToken, requireAdmin, async (req, res) => {
+  const { name, description, meals } = req.body;
   try {
-    const newMealPlan = new MealPlan({ ...req.body, user: req.user._id });
+    const newMealPlan = new MealPlan({ name, description, meals });
     await newMealPlan.save();
-    res.status(201).json({ success: true, data: newMealPlan });
+    res.status(201).json({ message: "Meal plan added successfully.", mealPlan: newMealPlan });
   } catch (error) {
-    console.error("Error creating meal plan:", error);
-    res.status(400).json({ success: false, message: error.message });
+    console.error("Error adding meal plan:", error);
+    res.status(500).json({ message: "Error adding meal plan", error: error.message });
   }
 });
 
-// Chef Recipe Routes
-app.get("/api/chef-recipes", authenticateToken, requireChef, async (req, res) => {
+// Chef recipe routes - Fixed to allow chef access
+app.get("/api/chef-recipes", async (req, res) => {
   try {
-    const chefRecipes = await ChefRecipe.find({ chef: req.user._id });
-    res.status(200).json({ success: true, data: chefRecipes });
+    const chefRecipes = await ChefRecipe.find({}).populate('chef', 'name email');
+    res.status(200).json(chefRecipes);
   } catch (error) {
     console.error("Error fetching chef recipes:", error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ message: "Error fetching chef recipes", error: error.message });
   }
 });
 
 app.post("/api/chef-recipes", authenticateToken, requireChef, async (req, res) => {
+  const { name, description, ingredients, instructions, cookingMethod, cuisine, difficulty, prepTime } = req.body;
   try {
-    const newChefRecipe = new ChefRecipe({ ...req.body, chef: req.user._id });
-    await newChefRecipe.save();
-    res.status(201).json({ success: true, data: newChefRecipe });
-  } catch (error) {
-    console.error("Error creating chef recipe:", error);
-    res.status(400).json({ success: false, message: error.message });
-  }
-});
-
-// Generate Recipe Endpoint
-app.post("/api/generate-recipe", optionalAuth, async (req, res) => {
-  try {
-    console.log("=== GENERATE RECIPE REQUEST ===");
-    console.log("Request body:", JSON.stringify(req.body, null, 2));
-    
-    const { ingredients: userIngredients, dietaryRestrictions, cuisinePreference, mealType } = req.body;
-
-    // Fetch all available ingredients and recipe components from the database
-    const allIngredients = await Ingredient.find({});
-    const allRecipeComponents = await RecipeComponent.find({});
-
-    console.log(`Found ${allIngredients.length} ingredients and ${allRecipeComponents.length} recipe components.`);
-
-    // Fallback data in case database is empty or specific types are missing
-    const defaultProteins = ["chicken breast", "beef steak", "tofu", "salmon", "eggs", "lentils", "pork loin", "shrimp", "turkey", "beans"];
-    const defaultVegetables = ["broccoli", "spinach", "carrots", "bell peppers", "onions", "mushrooms", "zucchini", "sweet potatoes", "asparagus", "kale"];
-    const defaultCarbs = ["rice", "pasta", "quinoa", "potatoes", "bread", "oats", "couscous", "corn"];
-    const defaultSauceBases = ["tomato sauce", "cream sauce", "soy sauce", "pesto", "curry paste", "broth", "coconut milk", "peanut butter", "vinegar", "lemon juice"];
-    const defaultCookingMethods = ["Baking", "Frying", "Grilling", "Boiling", "Roasting", "Steaming", "Sautéing", "Braising"];
-
-    const proteins = allRecipeComponents.filter(c => c.type === 'protein').map(c => c.name) || defaultProteins;
-    const vegetables = allRecipeComponents.filter(c => c.type === 'vegetable').map(c => c.name) || defaultVegetables;
-    const carbs = allRecipeComponents.filter(c => c.type === 'carb').map(c => c.name) || defaultCarbs;
-    const sauceBases = allRecipeComponents.filter(c => c.type === 'sauce_base').map(c => c.name) || defaultSauceBases;
-    const cookingMethods = allRecipeComponents.filter(c => c.type === 'cooking_method').map(c => c.name) || defaultCookingMethods;
-
-    // Filter ingredients based on user input (if provided)
-    let availableIngredients = userIngredients && userIngredients.length > 0
-      ? allIngredients.filter(ing => userIngredients.includes(ing.name))
-      : allIngredients;
-
-    if (availableIngredients.length === 0 && userIngredients.length > 0) {
-      console.warn("No matching ingredients found in DB for user input. Using all available ingredients.");
-      availableIngredients = allIngredients;
-    }
-
-    // Simple recipe generation logic (can be expanded)
-    let selectedIngredients = [];
-    let missingIngredients = [];
-
-    // Try to pick ingredients from user's list first
-    if (userIngredients && userIngredients.length > 0) {
-      // Prioritize user ingredients
-      selectedIngredients = userIngredients.slice(0, 3); // Take first 3 user ingredients
-
-      // Check for missing components based on a simple recipe structure
-      const hasProtein = selectedIngredients.some(ing => proteins.includes(ing));
-      const hasVegetable = selectedIngredients.some(ing => vegetables.includes(ing));
-      const hasCarb = selectedIngredients.some(ing => carbs.includes(ing));
-      const hasSauce = selectedIngredients.some(ing => sauceBases.includes(ing));
-
-      if (!hasProtein && proteins.length > 0) missingIngredients.push(proteins[Math.floor(Math.random() * proteins.length)]);
-      if (!hasVegetable && vegetables.length > 0) missingIngredients.push(vegetables[Math.floor(Math.random() * vegetables.length)]);
-      if (!hasCarb && carbs.length > 0) missingIngredients.push(carbs[Math.floor(Math.random() * carbs.length)]);
-      if (!hasSauce && sauceBases.length > 0) missingIngredients.push(sauceBases[Math.floor(Math.random() * sauceBases.length)]);
-
-      // Add some random ingredients if user provided few
-      while (selectedIngredients.length < 5 && availableIngredients.length > 0) {
-        const randomIng = availableIngredients[Math.floor(Math.random() * availableIngredients.length)].name;
-        if (!selectedIngredients.includes(randomIng)) {
-          selectedIngredients.push(randomIng);
-        }
-      }
-    } else {
-      // If no user ingredients, pick random ones
-      console.log("No user ingredients provided, generating random recipe.");
-      selectedIngredients = [];
-      const allNames = allIngredients.map(ing => ing.name);
-      while (selectedIngredients.length < 5 && allNames.length > 0) {
-        const randomIng = allNames[Math.floor(Math.random() * allNames.length)];
-        if (!selectedIngredients.includes(randomIng)) {
-          selectedIngredients.push(randomIng);
-        }
-      }
-      // If still no ingredients, use defaults
-      if (selectedIngredients.length === 0) {
-        selectedIngredients = [defaultProteins[0], defaultVegetables[0], defaultCarbs[0], defaultSauceBases[0]];
-      }
-    }
-
-    // Select a random cooking method
-    const randomCookingMethod = cookingMethods[Math.floor(Math.random() * cookingMethods.length)];
-
-    const recipeName = `Delicious ${randomCookingMethod} ${selectedIngredients[0] || 'Dish'}`;
-    const instructions = generateInstructions(randomCookingMethod);
-    const cookingTime = estimateCookingTime(randomCookingMethod);
-    const difficulty = determineDifficulty(randomCookingMethod);
-
-    const generatedRecipe = {
-      name: recipeName,
-      ingredients: selectedIngredients,
-      instructions,
-      cookingTime,
-      difficulty,
-      missingIngredients: missingIngredients.filter(Boolean), // Filter out any undefined/null
-      // Add more fields as needed, e.g., servings, prepTime, etc.
-    };
-
-    res.status(200).json({ success: true, data: generatedRecipe });
-
-  } catch (error) {
-    console.error("=== GENERATE RECIPE ERROR ===");
-    console.error("Error details:", error);
-    res.status(500).json({ 
-      success: false, 
-      message: "Failed to generate recipe. Please try again.",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    const newChefRecipe = new ChefRecipe({ 
+      name, 
+      description, 
+      ingredients, 
+      instructions, 
+      cookingMethod, 
+      cuisine, 
+      difficulty, 
+      prepTime,
+      chef: req.user._id // Associate recipe with the logged-in chef
     });
+    await newChefRecipe.save();
+    res.status(201).json({ message: "Chef recipe added successfully.", chefRecipe: newChefRecipe });
+  } catch (error) {
+    console.error("Error adding chef recipe:", error);
+    res.status(500).json({ message: "Error adding chef recipe", error: error.message });
   }
 });
 
-// Error handling middleware (catch-all)
-app.use((err, req, res, next) => {
-  console.error("Unhandled error:", err.stack);
-  res.status(500).send('Something broke!');
-});
+// Recipe generation route
+app.post("/api/generate-recipe", generateRecipe);
 
-// Handle 404 - Not Found
-app.use((req, res, next) => {
-  res.status(404).json({ success: false, message: `Route not found: ${req.method} ${req.originalUrl}` });
-});
-
-// Start server
+// Start the server
 app.listen(PORT, () => {
-  console.log("==================================================");
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📅 Started at: ${new Date().toISOString()}`);
-  console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
-  console.log(`🔑 JWT_SECRET configured: ${!!process.env.JWT_SECRET}`);
-  console.log(`🗄️  MONGO_URI configured: ${!!process.env.MONGO_URI}`);
-  console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
-  console.log("==================================================");
+  console.log(`Server running on port ${PORT}`);
 });
