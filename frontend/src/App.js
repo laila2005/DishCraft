@@ -8,6 +8,7 @@ import './App.css';
 // Main App Component (wrapped with authentication)
 function AppContent() {
   const { user, isAuthenticated, loading: authLoading, logout } = useAuth();
+  const [showAuthForms, setShowAuthForms] = useState(true); // Initially show auth forms if not authenticated
 
   // Existing state for ingredients and recipe generation
   const [ingredients, setIngredients] = useState([]);
@@ -203,8 +204,8 @@ function AppContent() {
       </header>
 
       <main>
-        {!isAuthenticated ? (
-          <AuthForms />
+        {!isAuthenticated && showAuthForms ? (
+          <AuthForms onClose={() => setShowAuthForms(false)} />
         ) : (
           <>
             <section className="recipe-generation-section">
