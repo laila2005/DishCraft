@@ -8,7 +8,8 @@ import './App.css';
 // Main App Component (wrapped with authentication)
 function AppContent() {
   const { user, isAuthenticated, loading: authLoading, logout } = useAuth();
-  const [showAuthForms, setShowAuthForms] = useState(true); // Initially show auth forms if not authenticated
+  // showAuthForms should only be true when explicitly triggered
+  const [showAuthForms, setShowAuthForms] = useState(false); 
 
   // Existing state for ingredients and recipe generation
   const [ingredients, setIngredients] = useState([]);
@@ -199,12 +200,12 @@ function AppContent() {
             <button onClick={logout} className="logout-btn">Logout</button>
           </div>
         ) : (
-          <p>Please log in or sign up to continue</p>
+          <button onClick={() => setShowAuthForms(true)} className="login-signup-btn">Login / Sign Up</button>
         )}
       </header>
 
       <main>
-        {!isAuthenticated && showAuthForms ? (
+        {showAuthForms && !isAuthenticated ? (
           <AuthForms onClose={() => setShowAuthForms(false)} />
         ) : (
           <>
