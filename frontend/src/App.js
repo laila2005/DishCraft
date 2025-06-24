@@ -8,10 +8,8 @@ import './App.css';
 // Main App Component (wrapped with authentication)
 function AppContent() {
   const { user, isAuthenticated, loading: authLoading, logout } = useAuth();
-  // showAuthForms should only be true when explicitly triggered
   const [showAuthForms, setShowAuthForms] = useState(false); 
 
-  // Existing state for ingredients and recipe generation
   const [ingredients, setIngredients] = useState([]);
   const [loadingIngredients, setLoadingIngredients] = useState(true);
   const [errorIngredients, setErrorIngredients] = useState(null);
@@ -20,24 +18,20 @@ function AppContent() {
   const [loadingRecipe, setLoadingRecipe] = useState(false);
   const [errorRecipe, setErrorRecipe] = useState(null);
 
-  // State for ingredient-based recipe generation
   const [userIngredients, setUserIngredients] = useState([]);
   const [ingredientInput, setIngredientInput] = useState('');
   const [filteredIngredients, setFilteredIngredients] = useState([]);
   const [showIngredientSuggestions, setShowIngredientSuggestions] = useState(false);
 
-  // State for Meal Planning
   const [mealPlans, setMealPlans] = useState([]);
   const [loadingMealPlans, setLoadingMealPlans] = useState(false);
   const [errorMealPlans, setErrorMealPlans] = useState(null);
   const [newMealPlanName, setNewMealPlanName] = useState('');
 
-  // Get backend URL with fallback
   const getBackendUrl = () => {
     return process.env.REACT_APP_BACKEND_URL || 'https://dishcraft-backend-3tk2.onrender.com';
   };
 
-  // Fetch ingredients from backend
   useEffect(() => {
     const fetchIngredients = async () => {
       try {
@@ -70,7 +64,6 @@ function AppContent() {
     fetchIngredients();
   }, []);
 
-  // Handle ingredient input change and filter suggestions
   const handleIngredientInputChange = useCallback((e) => {
     const input = e.target.value;
     setIngredientInput(input);
@@ -93,7 +86,6 @@ function AppContent() {
     }
   }, [ingredients]);
 
-  // Add ingredient to user's list
   const addIngredient = useCallback((ingredientName) => {
     setUserIngredients(prev => {
       if (!prev.includes(ingredientName)) {
@@ -105,12 +97,10 @@ function AppContent() {
     setShowIngredientSuggestions(false);
   }, []);
 
-  // Remove ingredient from user's list
   const removeIngredient = useCallback((ingredientName) => {
     setUserIngredients(prev => prev.filter(ing => ing !== ingredientName));
   }, []);
 
-  // Generate recipe
   const generateRecipe = useCallback(async () => {
     setLoadingRecipe(true);
     setErrorRecipe(null);
@@ -133,7 +123,6 @@ function AppContent() {
     }
   }, [userIngredients]);
 
-  // Fetch meal plans
   useEffect(() => {
     const fetchMealPlans = async () => {
       if (isAuthenticated && user) {
@@ -159,7 +148,6 @@ function AppContent() {
     fetchMealPlans();
   }, [isAuthenticated, user]);
 
-  // Add meal plan
   const addMealPlan = useCallback(async () => {
     if (!newMealPlanName.trim()) return;
     
@@ -178,64 +166,71 @@ function AppContent() {
     }
   }, [newMealPlanName]);
 
-  // Show loading screen while auth is being checked
   if (authLoading) {
     return (
       <div className="App">
-        <div className="loading-screen">
+        <div className="loading">
           <h2>Loading DishCraft...</h2>
         </div>
       </div>
     );
   }
 
-  // Render content based on authentication status
   return (
     <div className="App">
       <header className="App-header">
-        <h1>DishCraft</h1>
-        {isAuthenticated ? (
-          <div className="auth-status">
-            <p>Welcome, {user?.name} ({user?.role})!</p>
-            <button onClick={logout} className="logout-btn">Logout</button>
+        <div className="header-content">
+          <div className="header-left">
+            <h1>DishCraft</h1>
           </div>
-        ) : (
-          <button onClick={() => setShowAuthForms(true)} className="login-signup-btn">Login / Sign Up</button>
-        )}
+          <div className="user-menu">
+            {isAuthenticated ? (
+              <>
+                <p className="welcome-text">Welcome, {user?.name} ({user?.role})!</p>
+                <button onClick={logout} className="logout-btn">Logout</button>
+              </>
+            ) : (
+              <button onClick={() => setShowAuthForms(true)} className="login-btn">Login / Sign Up</button>
+            )}
+          </div>
+        </div>
       </header>
 
-      <main>
+      <main className="main-content">
         {showAuthForms && !isAuthenticated ? (
           <AuthForms onClose={() => setShowAuthForms(false)} />
         ) : (
           <>
-            <section className="recipe-generation-section">
+            <section className="ingredient-input-section">
               <h2>Generate Your Next Meal</h2>
               
-              {/* Backend Connection Status */}
               <div className="connection-status">
                 <p>Backend: {getBackendUrl()}</p>
                 {errorIngredients && (
                   <p className="error-message">⚠️ {errorIngredients}</p>
                 )}
                 {loadingIngredients && (
-                  <p className="loading-message">Loading ingredients...</p>
+                  <p className="loading">Loading ingredients...</p>
                 )}
               </div>
 
               <div className="ingredient-input-container">
-                <input
-                  type="text"
-                  placeholder="Enter ingredients you have..."
-                  value={ingredientInput}
-                  onChange={handleIngredientInputChange}
-                  onFocus={() => setShowIngredientSuggestions(true)}
-                  onBlur={() => setTimeout(() => setShowIngredientSuggestions(false), 100)}
-                />
+                <div className="input-wrapper">
+                  <input
+                    type="text"
+                    placeholder="Enter ingredients you have..."
+                    value={ingredientInput}
+                    onChange={handleIngredientInputChange}
+                    onFocus={() => setShowIngredientSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowIngredientSuggestions(false), 100)}
+                    className="ingredient-input"
+                  />
+                  <button onClick={() => addIngredient(ingredientInput)} className="add-ingredient-btn">Add Ingredient</button>
+                </div>
                 {showIngredientSuggestions && filteredIngredients.length > 0 && (
-                  <ul className="suggestions-list">
+                  <ul className="ingredient-suggestions">
                     {filteredIngredients.map(ing => (
-                      <li key={ing._id} onMouseDown={() => addIngredient(ing.name)}>
+                      <li key={ing._id} onMouseDown={() => addIngredient(ing.name)} className="suggestion-item">
                         {ing.name}
                       </li>
                     ))}
@@ -243,64 +238,114 @@ function AppContent() {
                 )}
               </div>
 
-              <div className="user-ingredients-list">
-                {userIngredients.map(ing => (
-                  <span key={ing} className="ingredient-tag">
-                    {ing}
-                    <button onClick={() => removeIngredient(ing)}>×</button>
-                  </span>
-                ))}
+              <div className="selected-ingredients">
+                <h3>Selected Ingredients:</h3>
+                <div className="ingredient-tags">
+                  {userIngredients.map(ing => (
+                    <span key={ing} className="ingredient-tag">
+                      {ing}
+                      <button onClick={() => removeIngredient(ing)} className="remove-ingredient-btn">×</button>
+                    </span>
+                  ))}
+                </div>
               </div>
 
-              <button 
-                onClick={generateRecipe} 
-                disabled={loadingRecipe || userIngredients.length === 0}
-                className="generate-btn"
-              >
-                {loadingRecipe ? 'Generating...' : 'Generate Recipe'}
-              </button>
+              <div className="generate-section">
+                <button 
+                  onClick={generateRecipe} 
+                  disabled={loadingRecipe || userIngredients.length === 0}
+                  className="generate-recipe-btn"
+                >
+                  {loadingRecipe ? 'Generating...' : 'Generate Recipe'}
+                </button>
+              </div>
 
               {errorRecipe && <p className="error-message">{errorRecipe}</p>}
 
               {generatedRecipe && (
                 <div className="generated-recipe-card">
                   <h3>{generatedRecipe.name}</h3>
-                  <p><strong>Ingredients:</strong> {generatedRecipe.ingredients.join(', ')}</p>
-                  <p><strong>Instructions:</strong></p>
-                  <ol>
-                    {generatedRecipe.instructions.map((step, index) => (
-                      <li key={index}>{step}</li>
-                    ))}
-                  </ol>
-                  <p><strong>Cooking Time:</strong> {generatedRecipe.cookingTime}</p>
-                  <p><strong>Difficulty:</strong> {generatedRecipe.difficulty}</p>
-                  {generatedRecipe.missingIngredients && generatedRecipe.missingIngredients.length > 0 && (
-                    <p className="missing-ingredients">
-                      <strong>Missing Ingredients:</strong> {generatedRecipe.missingIngredients.join(', ')}
-                    </p>
-                  )}
+                  <p className="recipe-description">{generatedRecipe.description}</p>
+                  <div className="recipe-info">
+                    <div className="recipe-meta">
+                      <span>Cooking Time: {generatedRecipe.cookingTime}</span>
+                      <span>Difficulty: {generatedRecipe.difficulty}</span>
+                    </div>
+                    {generatedRecipe.missingIngredients && generatedRecipe.missingIngredients.length > 0 && (
+                      <div className="ingredient-match-info">
+                        <h4>Missing Ingredients:</h4>
+                        <div className="missing-ingredient-tags">
+                          {generatedRecipe.missingIngredients.map((ing, index) => (
+                            <span key={index} className="missing-ingredient-tag">{ing}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="recipe-components">
+                    <h4>Ingredients:</h4>
+                    <div className="components-grid">
+                      {generatedRecipe.ingredients.map((ing, index) => (
+                        <div key={index} className="component-item"><strong>{ing.quantity} {ing.unit}</strong> {ing.item}</div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="recipe-instructions">
+                    <h4>Instructions:</h4>
+                    <ol className="instructions-list">
+                      {generatedRecipe.instructions.map((step, index) => (
+                        <li key={index} className="instruction-step">{step}</li>
+                      ))}
+                    </ol>
+                  </div>
                 </div>
               )}
             </section>
 
-            <section className="meal-plans-section">
+            <section className="meal-planning-section">
               <h2>Your Meal Plans</h2>
-              <div className="add-meal-plan">
-                <input
-                  type="text"
-                  placeholder="New Meal Plan Name"
-                  value={newMealPlanName}
-                  onChange={(e) => setNewMealPlanName(e.target.value)}
-                />
-                <button onClick={addMealPlan}>Add Meal Plan</button>
+              <div className="create-meal-plan">
+                <h3>Create New Meal Plan</h3>
+                <div className="create-meal-plan-form">
+                  <input
+                    type="text"
+                    placeholder="New Meal Plan Name"
+                    value={newMealPlanName}
+                    onChange={(e) => setNewMealPlanName(e.target.value)}
+                    className="meal-plan-name-input"
+                  />
+                  <button onClick={addMealPlan} className="create-plan-btn">Add Meal Plan</button>
+                </div>
               </div>
-              {loadingMealPlans && <p>Loading meal plans...</p>}
+              {loadingMealPlans && <p className="loading">Loading meal plans...</p>}
               {errorMealPlans && <p className="error-message">{errorMealPlans}</p>}
-              <div className="meal-plans-list">
-                {mealPlans.length === 0 && !loadingMealPlans && <p>No meal plans yet. Add one!</p>}
+              <div className="meal-plans-grid">
+                {mealPlans.length === 0 && !loadingMealPlans && <p className="empty-plan">No meal plans yet. Add one!</p>}
                 {mealPlans.map(plan => (
                   <div key={plan._id} className="meal-plan-card">
-                    <h4>{plan.name}</h4>
+                    <div className="meal-plan-header">
+                      <h3>{plan.name}</h3>
+                      <button className="delete-plan-btn">Delete</button>
+                    </div>
+                    <div className="meal-plan-content">
+                      <ul className="meals-list">
+                        {plan.meals && plan.meals.length > 0 ? (
+                          plan.meals.map((meal, mealIndex) => (
+                            <li key={mealIndex} className="meal-item">
+                              <div className="meal-info">
+                                <span className="meal-title">{meal.recipeName}</span>
+                                <span className="meal-meta">{meal.mealType} - {new Date(meal.date).toLocaleDateString()}</span>
+                              </div>
+                            </li>
+                          ))
+                        ) : (
+                          <li className="empty-plan">No meals added yet.</li>
+                        )}
+                      </ul>
+                    </div>
+                    <div className="meal-plan-stats">
+                      <span className="meal-count">{plan.meals ? plan.meals.length : 0} meals</span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -318,7 +363,6 @@ function AppContent() {
   );
 }
 
-// Root App Component with AuthProvider
 function App() {
   return (
     <AuthProvider>
