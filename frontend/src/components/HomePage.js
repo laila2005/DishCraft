@@ -89,7 +89,7 @@ const HomePage = () => {
   };
 
   return (
-    <div className="main-content">
+    <div className="App">
       <h2>🧪 Generate Your Next Meal</h2>
 
       <div className="ingredient-input-section">
