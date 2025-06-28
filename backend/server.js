@@ -4,9 +4,9 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
-
+require('dotenv').config();
 // Load environment variables first
-dotenv.config();
+//dotenv.config();
 
 // Import models
 const Ingredient = require("./models/Ingredient");

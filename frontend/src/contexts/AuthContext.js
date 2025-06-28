@@ -42,7 +42,12 @@ export const AuthProvider = ({ children }) => {
         console.log('AuthContext: Checking auth with backend:', `${backendUrl}/api/auth/me`);
 
         // Make a request to the /api/auth/me endpoint to validate the token
-        const response = await axios.get(`${backendUrl}/api/auth/me`);
+        const response = await axios.get(`${backendUrl}/api/auth/me`, {
+  headers: {
+    Authorization: `Bearer ${storedToken}`,
+  },
+});
+
         setUser(response.data.user); // Set user data if token is valid
         setToken(storedToken); // Ensure token state is consistent with localStorage
         console.log('AuthContext: Auth check successful, user:', response.data.user.email);
