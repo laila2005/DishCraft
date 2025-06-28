@@ -7,6 +7,7 @@ import './ChefDashboard.css';
 const ChefDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  <button onClick={() => navigate('/')}>🏠 Home</button>
   const [recipes, setRecipes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
