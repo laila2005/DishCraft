@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import './ChefDashboard.css';
 
 const ChefDashboard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [recipes, setRecipes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -244,9 +246,14 @@ const ChefDashboard = () => {
   return (
     <div className="chef-dashboard">
       <div className="dashboard-header">
-        <h1>👨‍🍳 Chef Dashboard</h1>
-        <p>Welcome back, Chef {user.name}! Manage your recipes and track your culinary impact.</p>
-      </div>
+  <div className="dashboard-header-top">
+    <h1>👨‍🍳 Chef Dashboard</h1>
+    <div className="header-buttons">
+      <button onClick={() => navigate('/')} className="nav-btn">🏠 Home</button>
+    </div>
+  </div>
+  <p>Welcome back, Chef {user.name}! Manage your recipes and track your culinary impact.</p>
+</div>
 
       {/* Chef Statistics */}
       <div className="chef-stats">

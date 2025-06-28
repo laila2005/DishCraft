@@ -29,6 +29,23 @@
   opacity: 0.9;
 }
 
+.dashboard-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-buttons .nav-btn {
+  background-color: #007bff;
+  color: white;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+
 /* Chef Statistics */
 .chef-stats {
   display: grid;
