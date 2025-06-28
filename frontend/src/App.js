@@ -1,33 +1,43 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import HomePage from './components/HomePage';
 import ChefDashboard from './components/ChefDashboard';
+import AuthForms from './components/AuthForms';
 import './App.css';
 
 function AppRoutes() {
-  const { user, loading } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
 
-  if (loading) return <div className="App"><p>Loading...</p></div>;
+  if (authLoading) {
+    return <div className="loading">Loading...</div>;
+  }
 
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
-      {user?.role === 'chef' && (
-        <Route path="/dashboard" element={<ChefDashboard />} />
-      )}
-      <Route path="*" element={<div className="App">404 - Page Not Found</div>} />
+      <Route 
+        path="/dashboard" 
+        element={isAuthenticated && user?.role === 'chef' ? (
+          <ChefDashboard />
+        ) : (
+          <Navigate to="/" />
+        )} 
+      />
+      <Route path="/auth" element={<AuthForms />} />
+      <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   );
 }
 
 function App() {
   return (
-    <AuthProvider>
-      <AppRoutes />
-    </AuthProvider>
+    <Router>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
+    </Router>
   );
 }
 
 export default App;
-
