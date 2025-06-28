@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import HomePage from './components/HomePage';
 import ChefDashboard from './components/ChefDashboard';
@@ -12,16 +12,11 @@ function AppRoutes() {
 
   return (
     <Routes>
-      {/* Home page available to everyone */}
       <Route path="/" element={<HomePage />} />
-
-      {/* Dashboard only for chefs */}
       {user?.role === 'chef' && (
         <Route path="/dashboard" element={<ChefDashboard />} />
       )}
-
-      {/* Optional: fallback route if needed */}
-      <Route path="*" element={<div>404 - Not Found</div>} />
+      <Route path="*" element={<div className="App">404 - Page Not Found</div>} />
     </Routes>
   );
 }
@@ -29,11 +24,10 @@ function AppRoutes() {
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
+      <AppRoutes />
     </AuthProvider>
   );
 }
 
 export default App;
+
