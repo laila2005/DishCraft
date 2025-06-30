@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import { useAuth } from '../contexts/AuthContext';
@@ -185,6 +186,13 @@ const AuthForms = ({ onClose = noop }) => {
                     required
                   />
                 </div>
+ {isLogin && (
+    <div style={{ textAlign: 'right', marginTop: '8px' }}>
+      <Link to="/forgot-password" className="auth-forgot-link">
+        Forgot Password?
+      </Link>
+    </div>
+  )}
               </div>
 
               {!isLogin && (

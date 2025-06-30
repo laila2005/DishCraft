@@ -5,16 +5,21 @@ import HomePage from './components/HomePage';
 import ChefDashboard from './components/ChefDashboard';
 import AuthForms from './components/AuthForms';
 import './App.css';
+import ForgotPasswordForm from './components/ForgotPasswordForm';
+import ResetPasswordForm  from './components/ResetPasswordForm';
 
 function App() {
   return (
     <AuthProvider>
       <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/auth" element={<AuthRoutes />} />
-        <Route path="/dashboard" element={<ProtectedRoutes />} />
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
+ 	 <Route path="/" element={<HomePage />} />
+ 	 <Route path="/auth" element={<AuthRoutes />} />
+ 	 <Route path="/dashboard" element={<ProtectedRoutes />} />
+               {/* forgot‑password & reset‑password */}
+ 	 <Route path="/forgot-password"        element={<ForgotPasswordForm />} />
+  	 <Route path="/reset-password/:token"  element={<ResetPasswordForm  />} />
+ 	 <Route path="*" element={<Navigate to="/" />} />
+       </Routes>
     </AuthProvider>
   );
 }

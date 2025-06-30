@@ -729,3 +729,16 @@
     font-size: 1.75rem;
   }
 }
+
+.auth-forgot-link {
+  font-size: 0.9rem;
+  color: #007bff;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.auth-forgot-link:hover {
+  color: #0056b3;
+  text-decoration: underline;
+}
+
