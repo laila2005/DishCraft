@@ -14,6 +14,8 @@ function App() {
         <Route path="/auth" element={<AuthRoutes />} />
         <Route path="/dashboard" element={<ProtectedRoutes />} />
         <Route path="*" element={<Navigate to="/" />} />
+        <Route path="/forgot-password" element={<ForgotPasswordForm />} />
+        <Route path="/reset-password/:token" element={<ResetPasswordForm />} />
       </Routes>
     </AuthProvider>
   );

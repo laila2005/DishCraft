@@ -3,6 +3,7 @@ const dotenv = require("dotenv");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
+const nodemailer = require('nodemailer');
 const bcrypt = require("bcryptjs");
 require('dotenv').config();
 // Load environment variables first
@@ -355,6 +356,49 @@ app.get("/api/auth/me", authenticateToken, async (req, res) => {
     res.status(500).json({ message: "Error fetching user", error: error.message });
   }
 });
+
+// Forgot password
+app.post('/api/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  try {
+    const user = await User.findOne({ email });
+    if (!user) return res.status(400).json({ message: "User not found" });
+
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const resetLink = `${process.env.FRONTEND_URL || 'https://dishcraft-frontend.onrender.com'}/reset-password/${token}`;
+
+    // Use nodemailer here (you can configure with SendGrid/Gmail for production)
+    console.log(`Reset link: ${resetLink}`); // For testing until email setup
+
+    res.status(200).json({ message: "Password reset link sent to your email." });
+  } catch (err) {
+    console.error("Forgot password error:", err);
+    res.status(500).json({ message: "Something went wrong" });
+  }
+});
+
+// Reset password
+app.post('/api/reset-password/:token', async (req, res) => {
+  const { token } = req.params;
+  const { password } = req.body;
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.userId);
+    if (!user) return res.status(400).json({ message: "User not found" });
+
+    user.password = password; // will be hashed by the pre-save hook
+    await user.save();
+
+    res.status(200).json({ message: "Password reset successfully." });
+  } catch (err) {
+    console.error("Reset password error:", err);
+    res.status(400).json({ message: "Invalid or expired token" });
+  }
+});
+
+
+
 
 // Ingredient routes
 app.get("/api/ingredients", async (req, res) => {
