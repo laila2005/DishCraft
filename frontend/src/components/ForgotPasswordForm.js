@@ -33,7 +33,7 @@ const ForgotPasswordForm = ({ onClose }) => {
     <div className="auth-overlay">
       <div className="auth-container">
         {/* ❌ This button now ONLY handles return to login */}
-        <button className="auth-close-btn" onClick={() => navigate('/')}>✕</button>
+        <button className="auth-close-btn" onClick={() => navigate('/auth')}>✕</button>
 
         <div className="auth-card">
           <div className="auth-header">
