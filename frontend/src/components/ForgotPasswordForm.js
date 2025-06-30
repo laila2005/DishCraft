@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import './AuthForms.css';
 import { FaEnvelope } from 'react-icons/fa';
+import { useNavigate } from 'react-router-dom';
 
 const ForgotPasswordForm = ({ onClose }) => {
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
+  const navigate = useNavigate();
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage('');
@@ -32,7 +33,7 @@ const ForgotPasswordForm = ({ onClose }) => {
     <div className="auth-overlay">
       <div className="auth-container">
         {/* ❌ This button now ONLY handles return to login */}
-        <button className="auth-close-btn" onClick={onClose}>✕</button>
+        <button className="auth-close-btn" onClick={() => navigate('/')}>✕</button>
 
         <div className="auth-card">
           <div className="auth-header">
