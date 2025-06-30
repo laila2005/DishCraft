@@ -1,10 +1,9 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './contexts/AuthContext';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import HomePage from './components/HomePage';
 import ChefDashboard from './components/ChefDashboard';
 import AuthForms from './components/AuthForms';
-import { useAuth } from './contexts/AuthContext';
 import './App.css';
 
 function App() {
@@ -22,12 +21,22 @@ function App() {
 
 function AuthRoutes() {
   const { isAuthenticated } = useAuth();
-  return isAuthenticated ? <Navigate to="/" /> : <AuthForms />;
+  const navigate = useNavigate();
+
+  return isAuthenticated ? (
+    <Navigate to="/" />
+  ) : (
+    <AuthForms onClose={() => navigate('/')} />
+  );
 }
 
 function ProtectedRoutes() {
   const { user, isAuthenticated } = useAuth();
-  return isAuthenticated && user?.role === 'chef' ? <ChefDashboard /> : <Navigate to="/" />;
+  return isAuthenticated && user?.role === 'chef' ? (
+    <ChefDashboard />
+  ) : (
+    <Navigate to="/" />
+  );
 }
 
 export default App;

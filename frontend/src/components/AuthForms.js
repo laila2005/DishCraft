@@ -1,109 +1,100 @@
-// src/components/AuthForms.js
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import { useAuth } from '../contexts/AuthContext';
 import './AuthForms.css';
 
-// ---------- helpers ----------
-const noop = () => {};               // safe default for onClose
+const noop = () => {};
 const isFn = (f) => typeof f === 'function';
 
-// ---------- component ----------
 const AuthForms = ({ onClose = noop }) => {
-  const safeClose = () => { if (isFn(onClose)) onClose(); };
+  const { login, register, isLoading, error } = useAuth();
 
-  const { login, register } = useAuth();
-  const [isLogin, setIsLogin] = useState(true);
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    role: 'user'
-  });
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState('');
-  const [success, setSuccess]   = useState('');
-  const [showWelcome, setShowWelcome] = useState(false);
-  const [welcomeUser, setWelcomeUser] = useState(null);
+  const [formType, setFormType] = useState('login');
+  const [formData, setFormData] = useState({ email: '', password: '', name: '' });
+  const [successMessage, setSuccessMessage] = useState('');
 
-  // ------------- handlers -------------
-  const handleInputChange = (e) => {
+  const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    if (error) setError('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setError('');
-    setSuccess('');
+    const { email, password, name } = formData;
 
-    try {
-      if (isLogin) {
-        const result = await login(formData.email, formData.password);
-
-        if (result.success) {
-          setWelcomeUser({
-            email: formData.email,
-            role : result.role || 'user'
-          });
-          setShowWelcome(true);
-
-          // hide modal after 3 s
-          setTimeout(safeClose, 3000);
-        } else {
-          setError(result.message || 'Login failed');
-        }
-      } else {
-        const result = await register(
-          formData.name,
-          formData.email,
-          formData.password,
-          formData.role
-        );
-
-        if (result.success) {
-          setSuccess('Registration successful! You can now log in.');
-          setIsLogin(true);
-          setFormData({ name: '', email: '', password: '', role: 'user' });
-        } else {
-          setError(result.message || 'Registration failed');
-        }
+    if (formType === 'login') {
+      await login(email, password);
+    } else {
+      const result = await register(name, email, password);
+      if (result.success) {
+        setSuccessMessage('Registered successfully! Redirecting...');
+        setTimeout(() => isFn(onClose) && onClose(), 3000);
       }
-    } catch (err) {
-      setError('An unexpected error occurred. Please try again.');
-    } finally {
-      setLoading(false);
     }
   };
 
-  const toggleForm = () => {
-    setIsLogin((prev) => !prev);
-    setError('');
-    setSuccess('');
-    setFormData({ name: '', email: '', password: '', role: 'user' });
-  };
-
-  // ------------- render -------------
-  if (showWelcome && welcomeUser) {
-    /* ——— trimmed for brevity ——— */
-    /* keep your existing welcome‑screen JSX here (unchanged) */
-  }
-
-  /* ——— keep the remainder of your JSX unchanged,      ———
-     ——— except replace every plain onClose use with     ———
-     ———   onClick={safeClose} and setTimeout(safeClose) ——— */
-
   return (
-    /* … existing modal markup … */
-    <button className="auth-close-btn" onClick={safeClose}>
-      {/* svg */}
-    </button>
-    /* … rest unchanged … */
+    <div className="auth-modal">
+      <div className="auth-form-container">
+        <button className="close-btn" onClick={onClose}>×</button>
+
+        <h2>{formType === 'login' ? 'Login' : 'Sign Up'}</h2>
+
+        <form onSubmit={handleSubmit}>
+          {formType === 'signup' && (
+            <input
+              type="text"
+              name="name"
+              placeholder="Name"
+              value={formData.name}
+              onChange={handleChange}
+              required
+            />
+          )}
+          <input
+            type="email"
+            name="email"
+            placeholder="Email"
+            value={formData.email}
+            onChange={handleChange}
+            required
+          />
+          <input
+            type="password"
+            name="password"
+            placeholder="Password"
+            value={formData.password}
+            onChange={handleChange}
+            required
+          />
+          <button type="submit" disabled={isLoading}>
+            {isLoading ? 'Please wait...' : formType === 'login' ? 'Login' : 'Sign Up'}
+          </button>
+        </form>
+
+        {error && <p className="error-msg">⚠️ {error}</p>}
+        {successMessage && <p className="success-msg">✅ {successMessage}</p>}
+
+        <p className="toggle-text">
+          {formType === 'login' ? (
+            <>
+              Don't have an account?{' '}
+              <span onClick={() => setFormType('signup')}>Sign Up</span>
+            </>
+          ) : (
+            <>
+              Already have an account?{' '}
+              <span onClick={() => setFormType('login')}>Login</span>
+            </>
+          )}
+        </p>
+      </div>
+    </div>
   );
 };
 
-AuthForms.propTypes = { onClose: PropTypes.func };
+AuthForms.propTypes = {
+  onClose: PropTypes.func,
+};
 
 export default AuthForms;
