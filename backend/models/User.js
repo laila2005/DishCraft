@@ -14,7 +14,7 @@ const userSchema = new mongoose.Schema({
     unique: true, // This is the primary way to define unique index
     lowercase: true,
     trim: true,
-    match: [/^[\w-]+(?:\.[\w-]+)*@(?:[\w-]+\.)+[a-zA-Z]{2,7}$/, "Please enter a valid email"],
+    match: [/^[\w.-]+@[\w.-]+\.[a-zA-Z]{2,}$/, "Please enter a valid email"],
   },
   password: {
     type: String,
