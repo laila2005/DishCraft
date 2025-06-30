@@ -275,36 +275,46 @@ const generateRecipe = async (req, res) => {
 
 // User authentication routes
 app.post("/api/register", async (req, res) => {
-  const { username, password, role } = req.body;
+  const { email, password, name, role } = req.body;
 
-  if (!username || !password || !role) {
+  if (!email || !password || !name || !role) {
     return res.status(400).json({ message: "All fields are required." });
   }
 
   try {
     // Check if user already exists
-    const existingUser = await User.findOne({ email: username });
+    const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ message: "User already exists with this email." });
+      return res
+        .status(400)
+        .json({ message: "User already exists with this email." });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new User({ 
-      name: username.split('@')[0], // Use email prefix as name
-      email: username, 
-      password: hashedPassword, 
-      role 
+    // 👉  NO manual bcrypt.hash here – the schema’s pre('save') will hash it
+    const newUser = new User({
+      name: name || email.split("@")[0], // fallback to email prefix
+      email,
+      password,                          // plain text (will be hashed by hook)
+      role
     });
+
     await newUser.save();
     res.status(201).json({ message: "User registered successfully." });
   } catch (error) {
     console.error("Error registering user:", error);
     if (error.code === 11000) {
-      return res.status(400).json({ message: "User already exists with this email." });
+      return res
+        .status(400)
+        .json({ message: "User already exists with this email." });
     }
-    res.status(500).json({ message: "Error registering user", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Server error during registration." });
   }
 });
+
+
+//
 
 app.post("/api/login", async (req, res) => {
   const { email, password } = req.body;
