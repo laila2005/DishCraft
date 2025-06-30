@@ -32,6 +32,10 @@ const ForgotPasswordForm = ({ onClose }) => {
     <div className="auth-overlay">
       <div className="auth-container">
         <button className="auth-close-btn" onClick={onClose}>✕</button>
+        <button type="button" className="auth-link" onClick={onClose}>
+  Back to login
+</button>
+
         <div className="auth-card">
           <div className="auth-header">
             <div className="auth-logo">
