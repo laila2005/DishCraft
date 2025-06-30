@@ -60,7 +60,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const backend = getBackendUrl();
       await axios.post(`${backend}/api/register`, {
-        username: email,
+        email,
         password,
         role,
         name
