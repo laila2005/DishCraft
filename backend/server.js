@@ -4,6 +4,7 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const nodemailer = require('nodemailer');
+const sendEmail = require('./utils/sendEmail');
 const bcrypt = require("bcryptjs");
 require('dotenv').config();
 // Load environment variables first
@@ -357,7 +358,7 @@ app.get("/api/auth/me", authenticateToken, async (req, res) => {
   }
 });
 
-// Forgot password
+//forget pass
 app.post('/api/forgot-password', async (req, res) => {
   const { email } = req.body;
   try {
@@ -367,8 +368,21 @@ app.post('/api/forgot-password', async (req, res) => {
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
     const resetLink = `${process.env.FRONTEND_URL || 'https://dishcraft-frontend.onrender.com'}/reset-password/${token}`;
 
-    // Use nodemailer here (you can configure with SendGrid/Gmail for production)
-    console.log(`Reset link: ${resetLink}`); // For testing until email setup
+    const html = `
+      <p>Hello ${user.name || ''},</p>
+      <p>Click the link below to reset your password. This link will expire in 1 hour:</p>
+      <a href="${resetLink}">${resetLink}</a>
+    `;
+
+    const emailSent = await sendEmail({
+      to: user.email,
+      subject: 'DishCraft Password Reset',
+      html
+    });
+
+    if (!emailSent) {
+      return res.status(500).json({ message: "Failed to send reset email" });
+    }
 
     res.status(200).json({ message: "Password reset link sent to your email." });
   } catch (err) {
@@ -376,6 +390,7 @@ app.post('/api/forgot-password', async (req, res) => {
     res.status(500).json({ message: "Something went wrong" });
   }
 });
+
 
 // Reset password
 app.post('/api/reset-password/:token', async (req, res) => {
