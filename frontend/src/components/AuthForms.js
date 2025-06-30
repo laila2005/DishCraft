@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import { useAuth } from '../contexts/AuthContext';
-import './AuthForms.css';
+import '/src/components/AuthForms.css';
 
 const noop = () => {};
 const isFn = (f) => typeof f === 'function';
