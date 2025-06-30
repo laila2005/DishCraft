@@ -39,7 +39,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const backend = getBackendUrl();
       const { data } = await axios.post(`${backend}/api/login`, {
-        username: email,
+        email,
         password
       });
 
