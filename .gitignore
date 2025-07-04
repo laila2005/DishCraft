@@ -1,0 +1,19 @@
+# Node.js backend
+backend/node_modules/
+backend/.env
+
+# React frontend
+frontend/node_modules/
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# OS generated files
+.DS_Store
+.vscode/
