@@ -967,19 +967,44 @@ app.delete("/api/user/saved-recipes/:id", authenticateToken, async (req, res) =>
     if (!mongoose.Types.ObjectId.isValid(recipeId)) {
       return res.status(400).json({ message: "Invalid recipe ID format.", sent: recipeId });
     }
-    // Remove from user's savedRecipes
+    // Remove from user's savedRecipes only
+    // Fix: Always use 'new' with ObjectId
+    const ObjectId = mongoose.Types.ObjectId;
     const user = await User.findByIdAndUpdate(
       req.user._id,
-      { $pull: { savedRecipes: mongoose.Types.ObjectId(recipeId) } },
+      { $pull: { savedRecipes: new ObjectId(recipeId) } },
       { new: true }
     );
     if (!user) return res.status(404).json({ message: "User not found" });
-    // Always delete the recipe from the database (regardless of ownership or public/private)
-    await ChefRecipe.deleteOne({ _id: recipeId });
-    // Return updated savedRecipes
-    res.status(200).json({ message: "Recipe removed from saved recipes and deleted from database", savedRecipes: user.savedRecipes });
+    res.status(200).json({ message: "Recipe removed from saved recipes", savedRecipes: user.savedRecipes });
   } catch (error) {
     res.status(500).json({ message: "Error removing saved recipe", error: error.message });
+  }
+});
+
+// Delete a chef's recipe (and remove from all users' savedRecipes)
+app.delete("/api/chef-recipes/:id", authenticateToken, requireChef, async (req, res) => {
+  try {
+    const recipeId = req.params.id;
+    if (!mongoose.Types.ObjectId.isValid(recipeId)) {
+      return res.status(400).json({ message: "Invalid recipe ID format." });
+    }
+    // Only allow the chef who owns the recipe to delete it
+    const recipe = await ChefRecipe.findById(recipeId);
+    if (!recipe) return res.status(404).json({ message: "Recipe not found" });
+    if (recipe.chef.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "You are not authorized to delete this recipe." });
+    }
+    // Remove recipe from all users' savedRecipes
+    await User.updateMany(
+      { savedRecipes: mongoose.Types.ObjectId(recipeId) },
+      { $pull: { savedRecipes: mongoose.Types.ObjectId(recipeId) } }
+    );
+    // Delete the recipe document
+    await ChefRecipe.deleteOne({ _id: recipeId });
+    res.status(200).json({ message: "Recipe deleted successfully." });
+  } catch (error) {
+    res.status(500).json({ message: "Error deleting recipe", error: error.message });
   }
 });
 
