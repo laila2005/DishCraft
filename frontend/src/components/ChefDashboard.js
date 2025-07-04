@@ -253,8 +253,11 @@ const ChefDashboard = () => {
     if (window.confirm('Are you sure you want to delete this recipe?')) {
       try {
         await axios.delete(`${BACKEND_URL}/api/chef-recipes/${recipeId}`);
+        // Optimistically update UI
+        setRecipes(prev => prev.filter(r => String(r._id) !== String(recipeId)));
         alert('Recipe deleted successfully!');
-        fetchMyRecipes();
+        // Optionally re-fetch for consistency
+        setTimeout(fetchMyRecipes, 500);
       } catch (err) {
         console.error('Error deleting recipe:', err);
         alert('Failed to delete recipe.');

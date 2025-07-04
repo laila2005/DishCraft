@@ -232,7 +232,6 @@ const UserProfile = () => {
                                             // Always send recipe._id as a string
                                             const recipeId = recipe && recipe._id ? String(recipe._id) : '';
                                             if (!recipeId) throw new Error('Invalid recipe ID');
-                                            console.log('Attempting to delete recipe:', recipeId, typeof recipeId, 'Current savedRecipes:', savedRecipes.map(r => [r._id, typeof r._id]));
                                             let token = user && user.token ? user.token : sessionStorage.getItem('dishcraft_token');
                                             await axios.delete(`${process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'}/api/user/saved-recipes/${recipeId}`, {
                                                 headers: { Authorization: `Bearer ${token}` }
