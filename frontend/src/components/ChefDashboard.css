@@ -896,3 +896,253 @@
   margin: 0.2rem 0 0.2rem 1.2rem;
   padding: 0;
 }
+
+/* ========== User & Chef Profile Enhancements ========== */
+.user-profile-page,
+.chef-profile-page {
+  max-width: 1000px;
+  margin: 40px auto;
+  padding: 30px;
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
+  font-family: 'Segoe UI', sans-serif;
+}
+
+/* Header Section */
+.profile-header,
+.chef-profile-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.chef-profile-photo,
+.profile-avatar {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 4px solid #764ba2;
+  box-shadow: 0 2px 8px rgba(118, 75, 162, 0.2);
+}
+
+/* Text Info */
+.chef-profile-info h2,
+.profile-header h2 {
+  margin: 0;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #333;
+}
+
+.chef-role,
+.profile-header p {
+  color: #777;
+  margin: 4px 0;
+  font-size: 14px;
+}
+
+.chef-recipe-count {
+  color: #555;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+/* Reusable Button */
+.nav-btn {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 12px;
+  font-weight: bold;
+  font-size: 15px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.nav-btn:hover {
+  background: linear-gradient(135deg, #5a67d8, #6b46c1);
+}
+
+/* Recipe Cards */
+.chef-recipe-card {
+  background: #fafafa;
+  border-radius: 16px;
+  padding: 20px;
+  border: 1px solid #ececec;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  transition: all 0.2s ease;
+}
+
+.chef-recipe-card:hover {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
+}
+
+.chef-recipe-section {
+  margin-top: 18px;
+}
+
+.chef-recipe-section ul,
+.chef-recipe-section ol {
+  margin: 0.4rem 0 0 1.2rem;
+  padding: 0;
+  color: #444;
+}
+
+/* Feedback Area */
+.add-feedback {
+  margin-top: 10px;
+}
+
+.feedback-input {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 15px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  resize: vertical;
+  font-family: inherit;
+  transition: border-color 0.2s ease;
+}
+
+.feedback-input:focus {
+  border-color: #764ba2;
+  outline: none;
+}
+
+.add-feedback button {
+  margin-top: 8px;
+  background: #764ba2;
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: bold;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.add-feedback button:hover {
+  background: #5f3a99;
+}
+
+/* Like and Rating Buttons */
+.like-btn {
+  font-size: 20px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  transition: transform 0.2s;
+}
+
+.like-btn:hover {
+  transform: scale(1.1);
+}
+
+.rating-stars button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 22px;
+  transition: color 0.2s ease;
+}
+
+.rating-stars button:hover {
+  color: #ffd700;
+}
+
+/* State Messages */
+.loading,
+.error-message,
+.login-prompt {
+  padding: 15px;
+  border-radius: 10px;
+  margin: 15px 0;
+  font-size: 14px;
+}
+
+.loading {
+  background: #f0f0f0;
+  color: #555;
+}
+
+.error-message {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.login-prompt {
+  background: #f6f6ff;
+  border: 1px solid #ccc;
+  text-align: center;
+  color: #666;
+}
+
+/* Recipe Details */
+.recipe-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.detail-item {
+  background: #f0f0f5;
+  padding: 6px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #333;
+}
+
+
+
+/* animated bg*/
+/* ========== Animated Gradient Background ========== */
+.user-profile-page,
+.chef-profile-page {
+  min-height: 100vh;
+  padding: 40px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: linear-gradient(-45deg, #667eea, #764ba2, #6a5acd, #8a2be2);
+  background-size: 400% 400%;
+  animation: gradientAnimation 15s ease infinite;
+}
+
+@keyframes gradientAnimation {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* ========== Frosted Glass Card Style ========== */
+.profile-header,
+.chef-profile-header,
+.recipes-section,
+.chef-recipes-list,
+.chef-recipe-card {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 18px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  padding: 24px;
+  margin-bottom: 24px;
+  width: 100%;
+  max-width: 900px;
+}
+
