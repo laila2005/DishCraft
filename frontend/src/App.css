@@ -619,7 +619,7 @@ body {
 .instructions-list {
   background: rgba(255, 255, 255, 0.97);
   border-radius: 32px;
-  padding: 48px 8vw;
+  padding: 20px 24px;
   box-shadow: 0 8px 32px rgba(102, 126, 234, 0.10);
   margin: 40px 0;
   min-width: 0;
@@ -651,6 +651,58 @@ body {
 .ingredient-name {
   color: #374151;
   font-weight: 500;
+}
+
+/* Like button styling */
+.like-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 22px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #333;
+  font-weight: 500;
+}
+
+.like-btn:hover {
+  background-color: rgba(102, 126, 234, 0.1);
+  transform: scale(1.05);
+}
+
+.like-btn:active {
+  transform: scale(0.95);
+}
+
+/* Rating stars styling */
+.rating-stars {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.rating-stars button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 24px;
+  color: #ccc;
+  transition: color 0.2s ease;
+  padding: 2px;
+  line-height: 1;
+}
+
+.rating-stars button:hover {
+  color: #FFD700;
+  transform: scale(1.1);
+}
+
+.rating-stars button:active {
+  transform: scale(0.95);
 }
 
 /* Custom instructions list with only bubble circle, no browser bullets */

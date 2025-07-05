@@ -5,7 +5,7 @@ import axios from 'axios';
 import '../App.css';
 
 const ChefProfile = () => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, token } = useAuth();
   const navigate = useNavigate();
   const [chefData, setChefData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -21,7 +21,7 @@ const ChefProfile = () => {
         setLoading(true);
         setError(null);
         const res = await axios.get(`http://localhost:5000/api/chef/profile`, {
-          headers: { Authorization: `Bearer ${user.token}` }
+          headers: { Authorization: `Bearer ${token}` }
         });
         setChefData(res.data);
       } catch (err) {
@@ -36,6 +36,75 @@ const ChefProfile = () => {
   if (loading) return <div className="loading">Loading profile...</div>;
   if (error) return <div className="error-message">{error}</div>;
   if (!chefData) return null;
+
+  // Handle like/unlike recipe
+  const handleLikeRecipe = async (recipeId, currentLikes = []) => {
+    if (!user) {
+      alert('Please log in to like recipes.');
+      navigate('/auth');
+      return;
+    }
+
+    try {
+      const response = await axios.post(`http://localhost:5000/api/chef-recipes/${recipeId}/like`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      // Update the recipe in the chefData
+      setChefData(prev => ({
+        ...prev,
+        recipes: prev.recipes.map(recipe => {
+          if (recipe._id === recipeId) {
+            return {
+              ...recipe,
+              likedBy: response.data.liked ? [...(recipe.likedBy || []), user._id] : (recipe.likedBy || []).filter(id => id !== user._id)
+            };
+          }
+          return recipe;
+        })
+      }));
+
+      return response.data;
+    } catch (err) {
+      console.error('Error liking recipe:', err);
+      alert('Failed to like recipe.');
+    }
+  };
+
+  // Handle rate recipe
+  const handleRateRecipe = async (recipeId, rating) => {
+    if (!user) {
+      alert('Please log in to rate recipes.');
+      navigate('/auth');
+      return;
+    }
+    
+    try {
+      const response = await axios.post(`http://localhost:5000/api/chef-recipes/${recipeId}/rate`, { value: rating }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      // Update the recipe in the chefData
+      setChefData(prev => ({
+        ...prev,
+        recipes: prev.recipes.map(recipe => {
+          if (recipe._id === recipeId) {
+            return {
+              ...recipe,
+              ratings: response.data.ratings
+            };
+          }
+          return recipe;
+        })
+      }));
+      
+      alert(`Recipe rated ${rating} stars!`);
+      return response.data;
+    } catch (err) {
+      console.error('Error rating recipe:', err);
+      alert('Failed to rate recipe.');
+    }
+  };
 
   return (
     <div className="chef-profile-page">
@@ -60,7 +129,61 @@ const ChefProfile = () => {
         ) : (
           chefData.recipes.map((recipe) => (
             <div className="chef-recipe-card" key={recipe._id}>
-              <h3>{recipe.name}</h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <h3>{recipe.name}</h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <button
+                    className="like-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleLikeRecipe(recipe._id, recipe.likedBy || []);
+                    }}
+                    style={{ 
+                      background: 'none', 
+                      border: 'none', 
+                      cursor: 'pointer', 
+                      fontSize: '22px',
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      transition: 'background-color 0.2s'
+                    }}
+                    title={recipe.likedBy?.some(id => id === user?._id) ? 'Unlike' : 'Like this recipe'}
+                  >
+                    {recipe.likedBy?.some(id => id === user?._id) ? '💖' : '🤍'} <span style={{ color: '#333', fontWeight: '500' }}>{recipe.likedBy?.length || 0}</span>
+                  </button>
+                  
+                  {/* Rating Stars */}
+                  <div className="rating-stars" style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                    {[1, 2, 3, 4, 5].map((star) => {
+                      const userRating = recipe.ratings?.find(r => r.user === user?._id)?.value || 0;
+                      const isRated = userRating >= star;
+                      return (
+                        <button
+                          key={star}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRateRecipe(recipe._id, star);
+                          }}
+                                                     style={{
+                             background: 'none',
+                             border: 'none',
+                             cursor: 'pointer',
+                             fontSize: '24px',
+                             color: isRated ? '#FFD700' : '#ccc',
+                             transition: 'color 0.2s'
+                           }}
+                          title={`Rate ${star} star${star > 1 ? 's' : ''}`}
+                        >
+                          {isRated ? '★' : '☆'}
+                        </button>
+                      );
+                    })}
+                    <span style={{ marginLeft: '4px', fontSize: '14px', color: '#666' }}>
+                      ({recipe.ratings?.length || 0})
+                    </span>
+                  </div>
+                </div>
+              </div>
               <div className="chef-recipe-section">
                 <strong>Ingredients:</strong>
                 <ul>
@@ -78,14 +201,18 @@ const ChefProfile = () => {
                 </ol>
               </div>
               <div className="chef-recipe-section">
-                <strong>Ratings:</strong> {recipe.ratings?.length || 0}
+                <strong>Average Rating:</strong> {
+                  recipe.ratings && recipe.ratings.length > 0 
+                    ? (recipe.ratings.reduce((sum, rating) => sum + (rating.value || rating.rating || 0), 0) / recipe.ratings.length).toFixed(1)
+                    : '0.0'
+                } ⭐ ({recipe.ratings?.length || 0} ratings)
               </div>
               <div className="chef-recipe-section">
                 <strong>Feedbacks:</strong>
                 <ul>
                   {recipe.feedbacks && recipe.feedbacks.length > 0 ? (
                     recipe.feedbacks.map((fb, idx) => (
-                      <li key={idx}>{fb.text} <span style={{color:'#888'}}>({fb.userName || 'User'})</span></li>
+                      <li key={idx}>{fb.text} <span style={{ color: '#888' }}>({fb.userName || 'User'})</span></li>
                     ))
                   ) : (
                     <li>No feedback yet.</li>

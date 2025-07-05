@@ -693,6 +693,92 @@ app.post("/api/chef-recipes", authenticateToken, requireChef, async (req, res) =
   }
 });
 
+// Update chef recipe (PUT endpoint for editing)
+app.put("/api/chef-recipes/:id", authenticateToken, requireChef, async (req, res) => {
+  try {
+    console.log("[PUT] Updating recipe:", req.params.id);
+    console.log("[PUT] User:", req.user._id);
+    console.log("[PUT] Request body:", req.body);
+    
+    const recipeId = req.params.id;
+    if (!mongoose.Types.ObjectId.isValid(recipeId)) {
+      console.log("[PUT] Invalid recipe ID format:", recipeId);
+      return res.status(400).json({ message: "Invalid recipe ID format." });
+    }
+
+    // Find the recipe and ensure the chef owns it
+    const recipe = await ChefRecipe.findById(recipeId);
+    if (!recipe) {
+      console.log("[PUT] Recipe not found:", recipeId);
+      return res.status(404).json({ message: "Recipe not found" });
+    }
+    console.log("[PUT] Recipe found:", recipe._id, "Owner:", recipe.chef);
+    if (recipe.chef.toString() !== req.user._id.toString()) {
+      console.log("[PUT] Authorization failed. Recipe owner:", recipe.chef, "User:", req.user._id);
+      return res.status(403).json({ message: "You are not authorized to edit this recipe." });
+    }
+
+    // Parse arrays if sent as strings
+    let ingredients = req.body.ingredients;
+    let instructions = req.body.instructions;
+    if (typeof ingredients === 'string') ingredients = JSON.parse(ingredients);
+    if (typeof instructions === 'string') instructions = JSON.parse(instructions);
+
+    // Coerce and validate numeric fields
+    const prepTime = Number(req.body.prepTime);
+    const cookTime = Number(req.body.cookTime);
+    const servings = Number(req.body.servings);
+    const totalTime = Number(req.body.totalTime) || (prepTime + cookTime);
+
+    if (!req.body.name || !req.body.category || isNaN(prepTime) || isNaN(cookTime) || isNaN(servings)) {
+      return res.status(400).json({ message: 'Missing or invalid required fields.' });
+    }
+
+    // Update the recipe
+    console.log("[PUT] Updating recipe with data:", {
+      name: req.body.name,
+      cookingMethod: req.body.cookingMethod,
+      category: req.body.category,
+      prepTime,
+      cookTime,
+      servings
+    });
+    
+    const updatedRecipe = await ChefRecipe.findByIdAndUpdate(
+      recipeId,
+      {
+        name: req.body.name,
+        description: req.body.description,
+        ingredients,
+        instructions,
+        cookingMethod: req.body.cookingMethod,
+        cuisine: req.body.cuisine,
+        difficulty: req.body.difficulty,
+        prepTime,
+        cookTime,
+        totalTime,
+        servings,
+        category: req.body.category,
+        dietaryTags: req.body.dietaryTags || [],
+        chefNotes: req.body.chefNotes,
+        tips: req.body.tips || [],
+        equipment: req.body.equipment || [],
+        tags: req.body.tags || []
+      },
+      { new: true }
+    );
+
+    console.log("[PUT] Recipe updated successfully:", updatedRecipe._id);
+    res.status(200).json({ 
+      message: "Recipe updated successfully.", 
+      recipe: updatedRecipe 
+    });
+  } catch (error) {
+    console.error("[PUT] Error updating chef recipe:", error);
+    res.status(500).json({ message: "Error updating chef recipe", error: error.message });
+  }
+});
+
 // --- Enhanced Recipe Actions ---
 
 // Like or unlike a recipe

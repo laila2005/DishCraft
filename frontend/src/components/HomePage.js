@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import '../App.css';
 
 const HomePage = () => {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, logout, token } = useAuth();
   // Debug: Log user state to help diagnose why name is not shown
   useEffect(() => {
     // eslint-disable-next-line
@@ -99,31 +99,95 @@ const HomePage = () => {
       alert('Please add at least one ingredient');
       return;
     }
-
     try {
       setLoadingRecipe(true);
       setErrorRecipe(null);
-      const response = await axios.post(`${getBackendUrl()}/api/generate-recipe`, {
-        ingredients: userIngredients,
-        cookingMethod: recipeOptions.cookingMethod,
-        cuisine: recipeOptions.cuisine,
-        difficulty: recipeOptions.difficulty,
-        prepTime: recipeOptions.prepTime
+      // Fetch all public chef recipes from the backend
+      const response = await axios.get(`${getBackendUrl()}/api/recipes?isPublic=true&limit=1000`);
+      const allChefRecipes = response.data && Array.isArray(response.data.data) ? response.data.data : [];
+      // Filter recipes that match ALL selected ingredients
+      const filtered = allChefRecipes.filter(recipe => {
+        const recipeIngredientNames = recipe.ingredients.map(ing => ing.name.toLowerCase());
+        // Check if every user ingredient is in the recipe's ingredients
+        return userIngredients.every(ing => recipeIngredientNames.includes(ing.toLowerCase()));
       });
-      // Set all suggestions from the backend response
-      if (response.data && Array.isArray(response.data.suggestions) && response.data.suggestions.length > 0) {
-        setGeneratedRecipes(response.data.suggestions);
+      if (filtered.length > 0) {
+        setGeneratedRecipes(filtered.slice(0, 5)); // Show up to 5 matches
       } else {
         setGeneratedRecipes([]);
-        setErrorRecipe('No recipe could be generated.');
+        setErrorRecipe('No chef recipes found with all selected ingredients.');
       }
     } catch (error) {
       console.error('Error generating recipe:', error);
-      setErrorRecipe('Failed to generate recipe. Please try again.');
+      setErrorRecipe('Failed to find chef recipes. Please try again.');
     } finally {
       setLoadingRecipe(false);
     }
-  }, [userIngredients, recipeOptions, getBackendUrl]);
+  }, [userIngredients, getBackendUrl]);
+
+  // Handle like/unlike recipe
+  const handleLikeRecipe = async (recipeId, currentLikes = [], currentLiked = false) => {
+    if (!user) {
+      alert('Please log in to like recipes.');
+      navigate('/auth');
+      return;
+    }
+
+    try {
+      const response = await axios.post(`${getBackendUrl()}/api/chef-recipes/${recipeId}/like`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      // Update the recipe in the generatedRecipes array
+      setGeneratedRecipes(prev => prev.map(recipe => {
+        if (recipe._id === recipeId) {
+          return {
+            ...recipe,
+            likes: response.data.liked ? [...(recipe.likes || []), user._id] : (recipe.likes || []).filter(id => id !== user._id),
+            likesCount: response.data.likesCount
+          };
+        }
+        return recipe;
+      }));
+
+      return response.data;
+    } catch (err) {
+      console.error('Error liking recipe:', err);
+      alert('Failed to like recipe.');
+    }
+  };
+
+  // Handle rate recipe
+  const handleRateRecipe = async (recipeId, rating) => {
+    if (!user) {
+      alert('Please log in to rate recipes.');
+      navigate('/auth');
+      return;
+    }
+
+    try {
+      const response = await axios.post(`${getBackendUrl()}/api/chef-recipes/${recipeId}/rate`, { value: rating }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      // Update the recipe in the generatedRecipes array
+      setGeneratedRecipes(prev => prev.map(recipe => {
+        if (recipe._id === recipeId) {
+          return {
+            ...recipe,
+            ratings: response.data.ratings
+          };
+        }
+        return recipe;
+      }));
+
+      alert(`Recipe rated ${rating} stars!`);
+      return response.data;
+    } catch (err) {
+      console.error('Error rating recipe:', err);
+      alert('Failed to rate recipe.');
+    }
+  };
 
   // Save recipe to user profile
   const saveRecipe = async (recipe) => {
@@ -368,7 +432,65 @@ const HomePage = () => {
             <div className="recipes-list">
               {generatedRecipes.map((generatedRecipe, recipeIdx) => (
                 <div className="generated-recipe" key={recipeIdx}>
-                  <h3>{generatedRecipe.name}</h3>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <h3>{generatedRecipe.name}</h3>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <button
+                        className="like-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleLikeRecipe(
+                            generatedRecipe._id, 
+                            generatedRecipe.likes || [], 
+                            generatedRecipe.likes?.some(id => id === user?._id) || false
+                          );
+                        }}
+                        style={{ 
+                          background: 'none', 
+                          border: 'none', 
+                          cursor: 'pointer', 
+                          fontSize: '24px',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          transition: 'background-color 0.2s'
+                        }}
+                        title={generatedRecipe.likes?.some(id => id === user?._id) ? 'Unlike' : 'Like this recipe'}
+                      >
+                        {generatedRecipe.likes?.some(id => id === user?._id) ? '💖' : '🤍'} <span style={{ color: '#333', fontWeight: '500' }}>{generatedRecipe.likes?.length || 0}</span>
+                      </button>
+                      
+                      {/* Rating Stars */}
+                      <div className="rating-stars" style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                        {[1, 2, 3, 4, 5].map((star) => {
+                          const userRating = generatedRecipe.ratings?.find(r => r.user === user?._id)?.value || 0;
+                          const isRated = userRating >= star;
+                          return (
+                            <button
+                              key={star}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRateRecipe(generatedRecipe._id, star);
+                              }}
+                                                             style={{
+                                 background: 'none',
+                                 border: 'none',
+                                 cursor: 'pointer',
+                                 fontSize: '24px',
+                                 color: isRated ? '#FFD700' : '#ccc',
+                                 transition: 'color 0.2s'
+                               }}
+                              title={`Rate ${star} star${star > 1 ? 's' : ''}`}
+                            >
+                              {isRated ? '★' : '☆'}
+                            </button>
+                          );
+                        })}
+                        <span style={{ marginLeft: '4px', fontSize: '14px', color: '#666' }}>
+                          ({generatedRecipe.ratings?.length || 0} ratings)
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                   {generatedRecipe.missingIngredients && Array.isArray(generatedRecipe.missingIngredients) && generatedRecipe.missingIngredients.length > 0 && (
                     <div className="missing-ingredients">
                       <h4>Missing Ingredients:</h4>
@@ -412,8 +534,8 @@ const HomePage = () => {
                     <div className="ingredient-list">
                       {(generatedRecipe.ingredients || []).map((ingredient, index) => (
                         <div key={index} className="ingredient-item">
-                          <span className="ingredient-quantity">{ingredient.quantity}</span>
                           <span className="ingredient-name">{ingredient.name}</span>
+                          <span className="ingredient-quantity">{ingredient.quantity}</span>
                         </div>
                       ))}
                     </div>
@@ -434,7 +556,8 @@ const HomePage = () => {
                         })
                         .map(({ instruction }, index) => (
                           <li key={index} className="instruction-step">
-                            {typeof instruction === 'object' && instruction.text ? instruction.text : instruction}
+                            {/* Fix: Render string if primitive, else render .instruction or .text */}
+                            {typeof instruction === 'string' ? instruction : (instruction.instruction || instruction.text || JSON.stringify(instruction))}
                           </li>
                         ))}
                     </ul>

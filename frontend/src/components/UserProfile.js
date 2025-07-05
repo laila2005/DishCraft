@@ -91,65 +91,57 @@ const UserProfile = () => {
 
     return (
         <div className="user-profile-page">
-            <div className="profile-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 32 }}>
-                <h2 style={{ margin: 0 }}>User Profile</h2>
+            <div className="profile-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 32, background: '#fff', borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.07)', padding: 32, maxWidth: 420, marginLeft: 'auto', marginRight: 'auto', position: 'relative' }}>
+                <div style={{ position: 'relative', width: 120, height: 120 }}>
+                    <img
+                        src={user.profilePhoto || '/logo192.png'}
+                        alt="Profile"
+                        className="profile-avatar"
+                        style={{ width: 120, height: 120, borderRadius: '50%', objectFit: 'cover', marginBottom: 12, border: '4px solid #764ba2' }}
+                    />
+                    <button
+                        style={{
+                            position: 'absolute',
+                            bottom: 8,
+                            right: 8,
+                            background: '#764ba2',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '50%',
+                            width: 36,
+                            height: 36,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.10)',
+                            fontSize: 18
+                        }}
+                        title="Change profile photo"
+                        onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                        disabled={uploading}
+                    >
+                        <span role="img" aria-label="Edit">✏️</span>
+                    </button>
+                    <input
+                        type="file"
+                        accept="image/*"
+                        style={{ display: 'none' }}
+                        ref={fileInputRef}
+                        onChange={handlePhotoChange}
+                    />
+                </div>
+                {uploading && <div style={{ color: '#764ba2', marginTop: 6 }}>Uploading...</div>}
+                {uploadError && <div style={{ color: 'red', marginTop: 6 }}>{uploadError}</div>}
+                <h2 style={{ margin: '12px 0 0 0', fontWeight: 700 }}>{user.name}</h2>
+                <p style={{ color: '#888', margin: 0 }}>{user.email}</p>
                 <button
                     className="nav-btn"
-                    style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 18px', fontWeight: 600, cursor: 'pointer', fontSize: 16 }}
+                    style={{ marginTop: 18, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 18px', fontWeight: 600, cursor: 'pointer', fontSize: 16 }}
                     onClick={() => navigate('/')}
                 >
                     🏠 Home
                 </button>
-            </div>
-            <div className="dashboard-header">
-                <div className="dashboard-header-top">
-                    <h1>👤 User Profile</h1>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: 20 }}>
-                    <div style={{ position: 'relative' }}>
-                        <img
-                            src={user.profilePhoto || '/logo192.png'}
-                            alt="Profile"
-                            className="profile-avatar"
-                            style={{ width: 120, height: 120, borderRadius: '50%', objectFit: 'cover', marginBottom: 12, border: '4px solid #764ba2' }}
-                        />
-                        <button
-                            style={{
-                                position: 'absolute',
-                                bottom: 8,
-                                right: 8,
-                                background: '#764ba2',
-                                color: '#fff',
-                                border: 'none',
-                                borderRadius: '50%',
-                                width: 36,
-                                height: 36,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                cursor: 'pointer',
-                                boxShadow: '0 2px 8px rgba(0,0,0,0.10)',
-                                fontSize: 18
-                            }}
-                            title="Change profile photo"
-                            onClick={() => fileInputRef.current && fileInputRef.current.click()}
-                            disabled={uploading}
-                        >
-                            <span role="img" aria-label="Edit">✏️</span>
-                        </button>
-                        <input
-                            type="file"
-                            accept="image/*"
-                            style={{ display: 'none' }}
-                            ref={fileInputRef}
-                            onChange={handlePhotoChange}
-                        />
-                    </div>
-                    {uploading && <div style={{ color: '#764ba2', marginTop: 6 }}>Uploading...</div>}
-                    {uploadError && <div style={{ color: 'red', marginTop: 6 }}>{uploadError}</div>}
-                    <h2 style={{ margin: 0 }}>{user.name}</h2>
-                    <p style={{ color: '#888', margin: 0 }}>{user.email}</p>
-                </div>
             </div>
             <div className="recipes-section">
                 <h2>💾 Saved Recipes</h2>

@@ -7,7 +7,7 @@ import 'react-quill/dist/quill.snow.css';
 import './ChefDashboard.css';
 
 const ChefDashboard = () => {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const navigate = useNavigate();
   const [recipes, setRecipes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -186,17 +186,37 @@ const ChefDashboard = () => {
         tags: recipeForm.tags.filter(tag => tag && tag.trim())
       };
       if (editingRecipe) {
-        await axios.put(`${BACKEND_URL}/api/chef-recipes/${editingRecipe._id}`, cleanedForm);
+        console.log('Updating recipe:', editingRecipe._id, cleanedForm);
+        const response = await axios.put(`${BACKEND_URL}/api/chef-recipes/${editingRecipe._id}`, cleanedForm, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        console.log('Update response:', response.data);
         alert('Recipe updated successfully!');
       } else {
-        await axios.post(`${BACKEND_URL}/api/chef-recipes`, cleanedForm);
+        console.log('Creating new recipe:', cleanedForm);
+        const response = await axios.post(`${BACKEND_URL}/api/chef-recipes`, cleanedForm, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        console.log('Create response:', response.data);
         alert('Recipe created successfully!');
       }
       resetForm();
       fetchMyRecipes();
     } catch (err) {
       console.error('Error saving recipe:', err);
-      alert('Failed to save recipe. Please try again.');
+      console.error('Error details:', {
+        message: err.message,
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        data: err.response?.data
+      });
+      alert(`Failed to save recipe: ${err.response?.data?.message || err.message}`);
     }
   };
 
@@ -265,17 +285,7 @@ const ChefDashboard = () => {
     }
   };
 
-  // Save recipe
-  const handleSaveRecipe = async (recipeId) => {
-    try {
-      await axios.post(`${process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'}/api/chef-recipes/${recipeId}/save`, {}, {
-        headers: { Authorization: `Bearer ${user.token}` }
-      });
-      alert('Recipe saved! You can view it in your profile.');
-    } catch (err) {
-      alert('Failed to save recipe.');
-    }
-  };
+
 
   // Get status badge color
   const getStatusBadgeColor = (status) => {
@@ -747,7 +757,6 @@ const ChefDashboard = () => {
                 recipes={recipes}
                 handleEditRecipe={handleEditRecipe}
                 handleDeleteRecipe={handleDeleteRecipe}
-                handleSaveRecipe={handleSaveRecipe}
               />
             )}
           </div>
@@ -762,7 +771,7 @@ const ChefDashboard = () => {
   );
 };
 
-const RecipeCapsuleList = ({ recipes, missingIngredients, handleEditRecipe, handleDeleteRecipe, handleSaveRecipe }) => {
+const RecipeCapsuleList = ({ recipes, missingIngredients, handleEditRecipe, handleDeleteRecipe }) => {
   const [expandedIndex, setExpandedIndex] = React.useState(null);
 
   // If there are missing ingredients, show message and do not show recipes
@@ -785,15 +794,14 @@ const RecipeCapsuleList = ({ recipes, missingIngredients, handleEditRecipe, hand
           onClick={() => setExpandedIndex(expandedIndex === idx ? null : idx)}
           handleEditRecipe={handleEditRecipe}
           handleDeleteRecipe={handleDeleteRecipe}
-          handleSaveRecipe={handleSaveRecipe}
         />
       ))}
     </div>
   );
 };
 
-const RecipeCapsule = ({ recipe, expanded, onClick, handleEditRecipe, handleDeleteRecipe, handleSaveRecipe }) => {
-  const { user } = useAuth();
+const RecipeCapsule = ({ recipe, expanded, onClick, handleEditRecipe, handleDeleteRecipe }) => {
+  const { user, token } = useAuth();
   const [likesCount, setLikesCount] = React.useState(recipe.likes ? recipe.likes.length : 0);
   const [liked, setLiked] = React.useState(recipe.likes ? recipe.likes.some(id => id === user?._id) : false);
   const [likeLoading, setLikeLoading] = React.useState(false);
@@ -811,7 +819,7 @@ const RecipeCapsule = ({ recipe, expanded, onClick, handleEditRecipe, handleDele
       const res = await axios.post(
         `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'}/api/chef-recipes/${recipe._id}/like`,
         {},
-        { headers: { Authorization: `Bearer ${user.token}` } }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       setLiked(res.data.liked);
       setLikesCount(res.data.likesCount);
@@ -819,6 +827,22 @@ const RecipeCapsule = ({ recipe, expanded, onClick, handleEditRecipe, handleDele
       // Optionally show error
     } finally {
       setLikeLoading(false);
+    }
+  };
+
+  const handleRate = async (e, rating) => {
+    e.stopPropagation();
+    if (!user) return;
+    try {
+      const res = await axios.post(
+        `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'}/api/chef-recipes/${recipe._id}/rate`,
+        { value: rating },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      // Update the recipe ratings in the parent component
+      // This will trigger a re-render with updated ratings
+    } catch (err) {
+      console.error('Error rating recipe:', err);
     }
   };
 
@@ -831,11 +855,38 @@ const RecipeCapsule = ({ recipe, expanded, onClick, handleEditRecipe, handleDele
             className="like-btn"
             onClick={handleLike}
             disabled={likeLoading}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22 }}
             title={liked ? 'Unlike' : 'Love this recipe'}
           >
-            {liked ? '❤️' : '🤍'} {likesCount}
+            {liked ? '💖' : '🤍'} <span style={{ color: '#333', fontWeight: '500' }}>{likesCount}</span>
           </button>
+
+          {/* Rating Stars */}
+          <div className="rating-stars" style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+            {[1, 2, 3, 4, 5].map((star) => {
+              const userRating = recipe.ratings?.find(r => r.user === user?._id)?.value || 0;
+              const isRated = userRating >= star;
+              return (
+                <button
+                  key={star}
+                  onClick={(e) => handleRate(e, star)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: '24px',
+                    color: isRated ? '#FFD700' : '#ccc',
+                    transition: 'color 0.2s'
+                  }}
+                  title={`Rate ${star} star${star > 1 ? 's' : ''}`}
+                >
+                  {isRated ? '★' : '☆'}
+                </button>
+              );
+            })}
+            <span style={{ marginLeft: '4px', fontSize: '14px', color: '#666' }}>
+              ({recipe.ratings?.length || 0})
+            </span>
+          </div>
           <button className="expand-btn" tabIndex={-1}>{expanded ? '▲' : '▼'}</button>
         </div>
       </div>
@@ -846,7 +897,11 @@ const RecipeCapsule = ({ recipe, expanded, onClick, handleEditRecipe, handleDele
             <span>🌍 {recipe.cuisine}</span>
             <span>⏱️ {recipe.prepTime + recipe.cookTime}m</span>
             <span>👥 {recipe.servings}</span>
-            <span>⭐ {recipe.averageRating || 0} ({recipe.ratings?.length || 0} ratings)</span>
+            <span>⭐ {
+              recipe.ratings && recipe.ratings.length > 0 
+                ? (recipe.ratings.reduce((sum, rating) => sum + (rating.value || rating.rating || 0), 0) / recipe.ratings.length).toFixed(1)
+                : '0.0'
+            } ({recipe.ratings?.length || 0} ratings)</span>
           </div>
           <div className="capsule-description" dangerouslySetInnerHTML={{ __html: recipe.description }} />
           <div className="capsule-section">
@@ -891,12 +946,6 @@ const RecipeCapsule = ({ recipe, expanded, onClick, handleEditRecipe, handleDele
               className="delete-btn"
             >
               🗑️ Delete
-            </button>
-            <button
-              onClick={() => handleSaveRecipe(recipe._id)}
-              className="save-btn"
-            >
-              💾 Save
             </button>
           </div>
         </div>
