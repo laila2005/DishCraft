@@ -847,15 +847,34 @@ app.post("/api/chef-recipes/:id/rate", authenticateToken, async (req, res) => {
 
 // Add feedback to a recipe
 app.post("/api/chef-recipes/:id/feedback", authenticateToken, async (req, res) => {
-  const { text, rating } = req.body;
+  const { text } = req.body;
   if (!text) return res.status(400).json({ message: "Feedback text is required" });
   try {
     const recipe = await ChefRecipe.findById(req.params.id);
     if (!recipe) return res.status(404).json({ message: "Recipe not found" });
-    recipe.feedbacks.push({ user: req.user._id, text, rating });
+    
+    // Add the feedback
+    recipe.feedbacks.push({ 
+      user: req.user._id, 
+      text: text.trim(),
+      createdAt: new Date()
+    });
     await recipe.save();
-    res.status(201).json({ message: "Feedback added", feedbacks: recipe.feedbacks });
+    
+    // Populate the feedbacks with user names for the response
+    const populatedRecipe = await ChefRecipe.findById(req.params.id)
+      .populate('feedbacks.user', 'name');
+    
+    res.status(201).json({ 
+      message: "Feedback added", 
+      feedbacks: populatedRecipe.feedbacks.map(fb => ({
+        text: fb.text,
+        userName: fb.user && fb.user.name ? fb.user.name : 'Anonymous User',
+        createdAt: fb.createdAt
+      }))
+    });
   } catch (error) {
+    console.error("Error adding feedback:", error);
     res.status(500).json({ message: "Error adding feedback", error: error.message });
   }
 });
