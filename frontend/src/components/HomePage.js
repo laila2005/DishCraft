@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
+import { useAlert } from '../contexts/AlertContext';
 import { useNavigate } from 'react-router-dom';
 import '../App.css';
 
 const HomePage = () => {
   const { user, isAuthenticated, logout, token } = useAuth();
+  const { showSuccess, showError, showWarning } = useAlert();
   // Debug: Log user state to help diagnose why name is not shown
   useEffect(() => {
     // eslint-disable-next-line
@@ -96,7 +98,7 @@ const HomePage = () => {
 
   const generateRecipe = useCallback(async () => {
     if (userIngredients.length === 0) {
-      alert('Please add at least one ingredient');
+      showError('Please add at least one ingredient');
       return;
     }
     try {
@@ -115,11 +117,11 @@ const HomePage = () => {
         setGeneratedRecipes(filtered.slice(0, 5)); // Show up to 5 matches
       } else {
         setGeneratedRecipes([]);
-        setErrorRecipe('No chef recipes found with all selected ingredients.');
+        showWarning('No chef recipes found with all selected ingredients.');
       }
     } catch (error) {
       console.error('Error generating recipe:', error);
-      setErrorRecipe('Failed to find chef recipes. Please try again.');
+      showError('Failed to find chef recipes. Please try again.');
     } finally {
       setLoadingRecipe(false);
     }
@@ -153,7 +155,7 @@ const HomePage = () => {
       return response.data;
     } catch (err) {
       console.error('Error liking recipe:', err);
-      alert('Failed to like recipe.');
+      showError('Failed to like recipe.');
     }
   };
 
@@ -181,18 +183,57 @@ const HomePage = () => {
         return recipe;
       }));
 
-      alert(`Recipe rated ${rating} stars!`);
+      showSuccess(`Recipe rated ${rating} stars!`);
       return response.data;
     } catch (err) {
       console.error('Error rating recipe:', err);
-      alert('Failed to rate recipe.');
+      showError('Failed to rate recipe.');
+    }
+  };
+
+  // Handle add feedback
+  const handleAddFeedback = async (recipeId, feedbackText) => {
+    if (!user) {
+      showWarning('Please log in to add feedback.');
+      navigate('/auth');
+      return;
+    }
+    
+    if (!feedbackText || feedbackText.trim() === '') {
+      showError('Please enter a feedback comment.');
+      return;
+    }
+    
+    try {
+      const response = await axios.post(`${getBackendUrl()}/api/chef-recipes/${recipeId}/feedback`, { 
+        text: feedbackText.trim() 
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      // Update the recipe in the generatedRecipes array
+      setGeneratedRecipes(prev => prev.map(recipe => {
+        if (recipe._id === recipeId) {
+          return {
+            ...recipe,
+            feedbacks: response.data.feedbacks
+          };
+        }
+        return recipe;
+      }));
+      
+      showSuccess('Feedback added successfully!');
+      return response.data;
+    } catch (err) {
+      console.error('Error adding feedback:', err);
+      showError('Failed to add feedback.');
     }
   };
 
   // Save recipe to user profile
   const saveRecipe = async (recipe) => {
     if (!user) {
-      alert('Please log in to save recipes.');
+      showWarning('Please log in to save recipes.');
       navigate('/auth');
       return;
     }
@@ -230,18 +271,18 @@ const HomePage = () => {
           headers: { Authorization: `Bearer ${user.token || sessionStorage.getItem('dishcraft_token')}` }
         });
         if (response.data && response.data.recipe && response.data.recipe._id) {
-          alert('Recipe saved! You can view it in your profile.');
+          showSuccess('Recipe saved! You can view it in your profile.');
         } else {
-          alert('Failed to save recipe.');
+          showError('Failed to save recipe.');
         }
       } else {
         await axios.post(`${backend}/api/chef-recipes/${recipe._id}/save`, {}, {
           headers: { Authorization: `Bearer ${user.token || sessionStorage.getItem('dishcraft_token')}` }
         });
-        alert('Recipe saved! You can view it in your profile.');
+        showSuccess('Recipe saved! You can view it in your profile.');
       }
     } catch (err) {
-      alert('Failed to save recipe.');
+      showError('Failed to save recipe.');
     }
   };
 
@@ -561,6 +602,80 @@ const HomePage = () => {
                           </li>
                         ))}
                     </ul>
+                  </div>
+
+                  {/* Feedback Section */}
+                  <div className="recipe-feedback">
+                    <h4>💬 Feedback ({generatedRecipe.feedbacks?.length || 0})</h4>
+                    
+                    {/* Display existing feedbacks */}
+                    {generatedRecipe.feedbacks && generatedRecipe.feedbacks.length > 0 ? (
+                      <div className="feedbacks-list">
+                        {generatedRecipe.feedbacks.map((feedback, index) => (
+                          <div key={index} className="feedback-item">
+                            <div className="feedback-content">
+                              <p>"{feedback.text}"</p>
+                              <small className="feedback-user">
+                                — {feedback.userName || 'Anonymous User'}
+                              </small>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="no-feedback">No feedback yet. Be the first to share your thoughts!</p>
+                    )}
+                    
+                    {/* Add feedback form - only for logged-in users */}
+                    {user ? (
+                      <div className="add-feedback">
+                        <textarea
+                          placeholder="Share your thoughts about this recipe..."
+                          className="feedback-input"
+                          rows="3"
+                          maxLength="500"
+                        />
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            const feedbackInput = e.target.parentNode.querySelector('.feedback-input');
+                            const feedbackText = feedbackInput.value;
+                            if (feedbackText.trim()) {
+                              handleAddFeedback(generatedRecipe._id, feedbackText);
+                              feedbackInput.value = '';
+                            }
+                          }}
+                        >
+                          💬 Add Feedback
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="login-prompt" style={{
+                        textAlign: 'center',
+                        padding: '15px',
+                        background: '#f8f9fa',
+                        borderRadius: '8px',
+                        border: '1px solid #e9ecef',
+                        marginTop: '15px'
+                      }}>
+                        <p style={{ margin: '0', color: '#666', fontSize: '14px' }}>
+                          💬 <strong>Want to share your thoughts?</strong><br />
+                          Please <button 
+                            onClick={() => navigate('/auth')}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: '#667eea',
+                              textDecoration: 'underline',
+                              cursor: 'pointer',
+                              fontSize: '14px'
+                            }}
+                          >
+                            log in
+                          </button> to add feedback.
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <button

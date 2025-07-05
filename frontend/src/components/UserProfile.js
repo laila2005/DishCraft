@@ -1,11 +1,13 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
+import { useAlert } from '../contexts/AlertContext';
 import { useNavigate } from 'react-router-dom';
 import './ChefDashboard.css';
 
 const UserProfile = () => {
     const { user, setUser } = useAuth(); // use setUser from context
+    const { showSuccess, showError, showWarning } = useAlert();
     const navigate = useNavigate(); // Add navigate
     const [savedRecipes, setSavedRecipes] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -27,7 +29,7 @@ const UserProfile = () => {
                 token = sessionStorage.getItem('dishcraft_token');
             }
             if (!token) {
-                setError('No authentication token found. Please log in again.');
+                showError('No authentication token found. Please log in again.');
                 setLoading(false);
                 return;
             }
@@ -39,7 +41,7 @@ const UserProfile = () => {
         } catch (err) {
             console.error('Saved recipes fetch error:', err, err?.response?.data);
             let backendMsg = err?.response?.data?.message || err?.message || 'Failed to load saved recipes.';
-            setError('Failed to load saved recipes. ' + backendMsg);
+            showError('Failed to load saved recipes. ' + backendMsg);
         } finally {
             setLoading(false);
         }
@@ -77,9 +79,10 @@ const UserProfile = () => {
             );
             if (res.data && res.data.user) {
                 setUser(res.data.user); // update user context
+                showSuccess('Profile photo updated successfully!');
             }
         } catch (err) {
-            setUploadError('Failed to upload photo.');
+            showError('Failed to upload photo.');
         } finally {
             setUploading(false);
         }

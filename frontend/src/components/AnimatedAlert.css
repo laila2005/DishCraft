@@ -1,0 +1,124 @@
+.animated-alert {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    min-width: 300px;
+    max-width: 400px;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transform: translateX(100%);
+    opacity: 0;
+    animation: slideIn 0.5s ease-out forwards;
+}
+
+.animated-alert.alert-exit {
+    animation: slideOut 0.3s ease-in forwards;
+}
+
+.alert-content {
+    display: flex;
+    align-items: center;
+    padding: 16px 20px;
+    gap: 12px;
+}
+
+.alert-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.alert-message {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: inherit;
+}
+
+.alert-close {
+    background: none;
+    border: none;
+    font-size: 16px;
+    cursor: pointer;
+    color: #666;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.alert-close:hover {
+    background: rgba(0, 0, 0, 0.1);
+    color: #333;
+}
+
+/* Alert Types - DishCraft Theme */
+.alert-success {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-left: 4px solid #4c51bf;
+  color: #fff;
+}
+
+.alert-error {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+  border-left: 4px solid #e53e3e;
+  color: #fff;
+}
+
+.alert-warning {
+  background: linear-gradient(135deg, #feca57 0%, #ff9ff3 100%);
+  border-left: 4px solid #f39c12;
+  color: #333;
+}
+
+.alert-info {
+  background: linear-gradient(135deg, #48dbfb 0%, #0abde3 100%);
+  border-left: 4px solid #0ea5e9;
+  color: #fff;
+}
+
+/* Animations */
+@keyframes slideIn {
+    0% {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+
+    100% {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOut {
+    0% {
+        transform: translateX(0);
+        opacity: 1;
+    }
+
+    100% {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .animated-alert {
+        right: 10px;
+        left: 10px;
+        min-width: auto;
+        max-width: none;
+    }
+
+    .alert-content {
+        padding: 12px 16px;
+    }
+
+    .alert-message {
+        font-size: 13px;
+    }
+}

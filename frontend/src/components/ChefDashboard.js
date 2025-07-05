@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useAlert } from '../contexts/AlertContext';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import './ChefDashboard.css';
 
 const ChefDashboard = () => {
   const { user, token } = useAuth();
+  const { showSuccess, showError, showWarning } = useAlert();
   const navigate = useNavigate();
   const [recipes, setRecipes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -138,34 +140,34 @@ const ChefDashboard = () => {
     const cookingMethod = recipeForm.cookingMethod;
 
     if (!name || !name.trim()) {
-      alert('Please enter a recipe name.');
+      showError('Please enter a recipe name.');
       return;
     }
     if (!cookingMethod || !cookingMethod.trim()) {
-      alert('Please enter a cooking method.');
+      showError('Please enter a cooking method.');
       return;
     }
     if (!category || !category.trim()) {
-      alert('Please select a category.');
+      showError('Please select a category.');
       return;
     }
     if (!servings || isNaN(servings) || servings < 1) {
-      alert('Please enter a valid number of servings.');
+      showError('Please enter a valid number of servings.');
       return;
     }
     if (!prepTime || isNaN(prepTime) || prepTime < 1) {
-      alert('Please enter a valid prep time.');
+      showError('Please enter a valid prep time.');
       return;
     }
     if (!cookTime || isNaN(cookTime) || cookTime < 1) {
-      alert('Please enter a valid cook time.');
+      showError('Please enter a valid cook time.');
       return;
     }
 
     // Calculate totalTime safely
     const totalTime = prepTime + cookTime;
     if (isNaN(totalTime) || totalTime < 1) {
-      alert('Total time must be a valid positive number.');
+      showError('Total time must be a valid positive number.');
       return;
     }
 
@@ -194,7 +196,7 @@ const ChefDashboard = () => {
           }
         });
         console.log('Update response:', response.data);
-        alert('Recipe updated successfully!');
+        showSuccess('Recipe updated successfully!');
       } else {
         console.log('Creating new recipe:', cleanedForm);
         const response = await axios.post(`${BACKEND_URL}/api/chef-recipes`, cleanedForm, {
@@ -204,7 +206,7 @@ const ChefDashboard = () => {
           }
         });
         console.log('Create response:', response.data);
-        alert('Recipe created successfully!');
+        showSuccess('Recipe created successfully!');
       }
       resetForm();
       fetchMyRecipes();
@@ -216,7 +218,7 @@ const ChefDashboard = () => {
         statusText: err.response?.statusText,
         data: err.response?.data
       });
-      alert(`Failed to save recipe: ${err.response?.data?.message || err.message}`);
+      showError(`Failed to save recipe: ${err.response?.data?.message || err.message}`);
     }
   };
 
@@ -275,12 +277,12 @@ const ChefDashboard = () => {
         await axios.delete(`${BACKEND_URL}/api/chef-recipes/${recipeId}`);
         // Optimistically update UI
         setRecipes(prev => prev.filter(r => String(r._id) !== String(recipeId)));
-        alert('Recipe deleted successfully!');
+        showSuccess('Recipe deleted successfully!');
         // Optionally re-fetch for consistency
         setTimeout(fetchMyRecipes, 500);
       } catch (err) {
         console.error('Error deleting recipe:', err);
-        alert('Failed to delete recipe.');
+        showError('Failed to delete recipe.');
       }
     }
   };
@@ -757,6 +759,10 @@ const ChefDashboard = () => {
                 recipes={recipes}
                 handleEditRecipe={handleEditRecipe}
                 handleDeleteRecipe={handleDeleteRecipe}
+                showSuccess={showSuccess}
+                showError={showError}
+                showWarning={showWarning}
+                navigate={navigate}
               />
             )}
           </div>
@@ -771,7 +777,7 @@ const ChefDashboard = () => {
   );
 };
 
-const RecipeCapsuleList = ({ recipes, missingIngredients, handleEditRecipe, handleDeleteRecipe }) => {
+const RecipeCapsuleList = ({ recipes, missingIngredients, handleEditRecipe, handleDeleteRecipe, showSuccess, showError, showWarning, navigate }) => {
   const [expandedIndex, setExpandedIndex] = React.useState(null);
 
   // If there are missing ingredients, show message and do not show recipes
@@ -794,13 +800,17 @@ const RecipeCapsuleList = ({ recipes, missingIngredients, handleEditRecipe, hand
           onClick={() => setExpandedIndex(expandedIndex === idx ? null : idx)}
           handleEditRecipe={handleEditRecipe}
           handleDeleteRecipe={handleDeleteRecipe}
+          showSuccess={showSuccess}
+          showError={showError}
+          showWarning={showWarning}
+          navigate={navigate}
         />
       ))}
     </div>
   );
 };
 
-const RecipeCapsule = ({ recipe, expanded, onClick, handleEditRecipe, handleDeleteRecipe }) => {
+const RecipeCapsule = ({ recipe, expanded, onClick, handleEditRecipe, handleDeleteRecipe, showSuccess, showError, showWarning, navigate }) => {
   const { user, token } = useAuth();
   const [likesCount, setLikesCount] = React.useState(recipe.likes ? recipe.likes.length : 0);
   const [liked, setLiked] = React.useState(recipe.likes ? recipe.likes.some(id => id === user?._id) : false);
@@ -843,6 +853,31 @@ const RecipeCapsule = ({ recipe, expanded, onClick, handleEditRecipe, handleDele
       // This will trigger a re-render with updated ratings
     } catch (err) {
       console.error('Error rating recipe:', err);
+    }
+  };
+
+  const handleAddFeedback = async (e, feedbackText) => {
+    e.stopPropagation();
+    if (!user) {
+      showWarning('Please log in to add feedback.');
+      return;
+    }
+    if (!feedbackText || feedbackText.trim() === '') {
+      showError('Please enter a feedback comment.');
+      return;
+    }
+    try {
+      const res = await axios.post(
+        `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'}/api/chef-recipes/${recipe._id}/feedback`,
+        { text: feedbackText.trim() },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      showSuccess('Feedback added successfully!');
+      // Update the recipe feedbacks in the parent component
+      // This will trigger a re-render with updated feedbacks
+    } catch (err) {
+      console.error('Error adding feedback:', err);
+      showError('Failed to add feedback.');
     }
   };
 
@@ -898,7 +933,7 @@ const RecipeCapsule = ({ recipe, expanded, onClick, handleEditRecipe, handleDele
             <span>⏱️ {recipe.prepTime + recipe.cookTime}m</span>
             <span>👥 {recipe.servings}</span>
             <span>⭐ {
-              recipe.ratings && recipe.ratings.length > 0 
+              recipe.ratings && recipe.ratings.length > 0
                 ? (recipe.ratings.reduce((sum, rating) => sum + (rating.value || rating.rating || 0), 0) / recipe.ratings.length).toFixed(1)
                 : '0.0'
             } ({recipe.ratings?.length || 0} ratings)</span>
@@ -932,6 +967,82 @@ const RecipeCapsule = ({ recipe, expanded, onClick, handleEditRecipe, handleDele
           {recipe.dietaryTags && recipe.dietaryTags.length > 0 && (
             <div className="capsule-section"><strong>Dietary Tags:</strong> {recipe.dietaryTags.join(', ')}</div>
           )}
+
+          {/* Feedback Section */}
+          <div className="capsule-section">
+            <strong>💬 Feedback ({recipe.feedbacks?.length || 0})</strong>
+
+            {/* Display existing feedbacks */}
+            {recipe.feedbacks && recipe.feedbacks.length > 0 ? (
+              <div className="feedbacks-list">
+                {recipe.feedbacks.map((feedback, index) => (
+                  <div key={index} className="feedback-item">
+                    <div className="feedback-content">
+                      <p>"{feedback.text}"</p>
+                      <small className="feedback-user">
+                        — {feedback.userName || 'Anonymous User'}
+                      </small>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="no-feedback">
+                No feedback yet. Be the first to share your thoughts!
+              </p>
+            )}
+
+            {/* Add feedback form - only for logged-in users */}
+            {user ? (
+              <div className="add-feedback">
+                <textarea
+                  placeholder="Share your thoughts about this recipe..."
+                  className="feedback-input"
+                  rows="3"
+                  maxLength="500"
+                />
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const feedbackInput = e.target.parentNode.querySelector('.feedback-input');
+                    const feedbackText = feedbackInput.value;
+                    if (feedbackText.trim()) {
+                      handleAddFeedback(e, feedbackText);
+                      feedbackInput.value = '';
+                    }
+                  }}
+                >
+                  💬 Add Feedback
+                </button>
+              </div>
+            ) : (
+              <div className="login-prompt" style={{
+                textAlign: 'center',
+                padding: '15px',
+                background: '#f8f9fa',
+                borderRadius: '8px',
+                border: '1px solid #e9ecef',
+                marginTop: '15px'
+              }}>
+                <p style={{ margin: '0', color: '#666', fontSize: '14px' }}>
+                  💬 <strong>Want to share your thoughts?</strong><br />
+                  Please <button 
+                    onClick={() => navigate('/auth')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#667eea',
+                      textDecoration: 'underline',
+                      cursor: 'pointer',
+                      fontSize: '14px'
+                    }}
+                  >
+                    log in
+                  </button> to add feedback.
+                </p>
+              </div>
+            )}
+          </div>
 
           {/* Recipe Actions */}
           <div className="recipe-actions">

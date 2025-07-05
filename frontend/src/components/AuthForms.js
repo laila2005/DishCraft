@@ -2,15 +2,17 @@ import { Link } from 'react-router-dom';
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import { useAuth } from '../contexts/AuthContext';
+import { useAlert } from '../contexts/AlertContext';
 import './AuthForms.css';
 
-const noop = () => {};
+const noop = () => { };
 const isFn = (f) => typeof f === 'function';
 
 const AuthForms = ({ onClose = noop }) => {
   const safeClose = () => { if (isFn(onClose)) onClose(); };
 
   const { login, register } = useAuth();
+  const { showSuccess, showError, showWarning } = useAlert();
 
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
@@ -41,6 +43,7 @@ const AuthForms = ({ onClose = noop }) => {
       if (isLogin) {
         const result = await login(formData.email, formData.password);
         if (result.success) {
+          showSuccess('Login successful! Welcome back!');
           setWelcomeUser({
             email: formData.email,
             role: result.role || 'user'
@@ -48,7 +51,7 @@ const AuthForms = ({ onClose = noop }) => {
           setShowWelcome(true);
           setTimeout(safeClose, 3000);
         } else {
-          setError(result.message || 'Login failed');
+          showError(result.message || 'Login failed');
         }
       } else {
         const res = await register(
@@ -58,15 +61,15 @@ const AuthForms = ({ onClose = noop }) => {
           formData.role
         );
         if (res.success) {
-          setSuccess('Registration successful! You can now log in.');
+          showSuccess('Registration successful! You can now log in.');
           setIsLogin(true);
           setFormData({ name: '', email: '', password: '', role: 'user' });
         } else {
-          setError(res.message || 'Registration failed');
+          showError(res.message || 'Registration failed');
         }
       }
     } catch {
-      setError('Unexpected error. Please try again.');
+      showError('Unexpected error. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -186,13 +189,13 @@ const AuthForms = ({ onClose = noop }) => {
                     required
                   />
                 </div>
- {isLogin && (
-    <div style={{ textAlign: 'right', marginTop: '8px' }}>
-      <Link to="/forgot-password" className="auth-forgot-link">
-        Forgot Password?
-      </Link>
-    </div>
-  )}
+                {isLogin && (
+                  <div style={{ textAlign: 'right', marginTop: '8px' }}>
+                    <Link to="/forgot-password" className="auth-forgot-link">
+                      Forgot Password?
+                    </Link>
+                  </div>
+                )}
               </div>
 
               {!isLogin && (
