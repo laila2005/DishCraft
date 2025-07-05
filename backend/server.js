@@ -721,7 +721,15 @@ app.post("/api/chef-recipes/:id/save", authenticateToken, async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
     const recipeId = req.params.id;
     // Ensure ObjectId type and no duplicates
-    const recipeObjectId = typeof recipeId === 'string' ? mongoose.Types.ObjectId(recipeId) : recipeId;
+    let recipeObjectId;
+    try {
+      recipeObjectId = new mongoose.Types.ObjectId(recipeId);
+    } catch (e) {
+      return res.status(400).json({ message: "Invalid recipe ID format." });
+    }
+    // Check if recipe exists before saving
+    const recipe = await ChefRecipe.findById(recipeObjectId);
+    if (!recipe) return res.status(404).json({ message: "Recipe not found" });
     const alreadySaved = user.savedRecipes.some(id => id.toString() === recipeObjectId.toString());
     if (!alreadySaved) {
       user.savedRecipes.push(recipeObjectId);
