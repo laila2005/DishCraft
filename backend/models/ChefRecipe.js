@@ -49,7 +49,7 @@ const chefRecipeSchema = new mongoose.Schema({
   category: {
     type: String,
     enum: [
-      "appetizer", "main-course", "dessert", "soup", "salad", 
+      "appetizer", "main-course", "dessert", "soup", "salad",
       "breakfast", "lunch", "dinner", "snack", "beverage",
       "side-dish", "sauce", "marinade", "other"
     ],
@@ -58,8 +58,8 @@ const chefRecipeSchema = new mongoose.Schema({
   cuisine: {
     type: String,
     enum: [
-      "italian", "mexican", "asian", "american", "mediterranean", 
-      "indian", "french", "chinese", "japanese", "thai", 
+      "italian", "mexican", "asian", "american", "mediterranean",
+      "indian", "french", "chinese", "japanese", "thai",
       "greek", "spanish", "middle-eastern", "african", "fusion", "other"
     ],
     required: true
@@ -81,7 +81,7 @@ const chefRecipeSchema = new mongoose.Schema({
   },
   totalTime: {
     type: Number,
-    default: function() {
+    default: function () {
       return this.prepTime + this.cookTime;
     }
   },
@@ -94,7 +94,7 @@ const chefRecipeSchema = new mongoose.Schema({
   dietaryTags: [{
     type: String,
     enum: [
-      "vegetarian", "vegan", "gluten-free", "dairy-free", 
+      "vegetarian", "vegan", "gluten-free", "dairy-free",
       "nut-free", "low-carb", "keto", "paleo", "low-sodium",
       "high-protein", "low-fat", "sugar-free", "halal", "kosher"
     ]
@@ -121,7 +121,12 @@ const chefRecipeSchema = new mongoose.Schema({
   videoUrl: { type: String, default: "" },
   sourceUrl: { type: String, default: "" },
   createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
+  updatedAt: { type: Date, default: Date.now },
+  cookingMethod: {
+    type: String,
+    required: true,
+    enum: ["Steaming", "Boiling", "Grilling", "Baking", "Stir-frying"]
+  }
 
 }, {
   timestamps: true
@@ -136,7 +141,7 @@ chefRecipeSchema.index({ isPublic: 1 });
 chefRecipeSchema.index({ name: 'text', description: 'text' });
 
 // Virtual for chef's recipe count (for dashboard)
-chefRecipeSchema.virtual('chefRecipeCount').get(function() {
+chefRecipeSchema.virtual('chefRecipeCount').get(function () {
   // This is a placeholder; actual aggregation should be done in controller/query
   return undefined;
 });
