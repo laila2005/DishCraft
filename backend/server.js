@@ -1,58 +1,79 @@
-require('dotenv').config(); // Load environment variables at the very top
+require('dotenv').config(); // ✅ Load env vars at the very top
+
 const express = require("express");
-const dotenv = require("dotenv");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const nodemailer = require('nodemailer');
-const sendEmail = require('./utils/sendEmail');
 const bcrypt = require("bcryptjs");
-//dotenv.config();
 
-// Import models
+const sendEmail = require('./utils/sendEmail');
+const contactRoutes = require('./routes/contact');
+
 const Ingredient = require("./models/Ingredient");
 const RecipeComponent = require("./models/RecipeComponent");
-// const Meal = require("./models/Meal");
-// const MealPlan = require("./models/MealPlan");
 const User = require("./models/User");
 const ChefRecipe = require("./models/ChefRecipe");
 
-// Import middleware
 const { authenticateToken, requireChef, requireAdmin, optionalAuth } = require("./middleware/authMiddleware");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
-app.use(cors({
-  origin: true, // Allow all origins for development
-  credentials: true
-}));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
-
-// Request logging middleware
-app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
-  next();
-});
-
-// Connect to MongoDB with better error handling (removed deprecated options)
+// ✅ Connect to MongoDB
 const connectDB = async () => {
   try {
     if (!process.env.MONGO_URI) {
       throw new Error("MONGO_URI is not defined in environment variables");
     }
     const conn = await mongoose.connect(process.env.MONGO_URI);
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
+    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
   } catch (err) {
-    console.error(`MongoDB connection error: ${err.message}`);
+    console.error(`❌ MongoDB connection error: ${err.message}`);
     process.exit(1);
   }
 };
 
-// Initialize database connection
-connectDB();
+connectDB(); // 🔌 Start DB connection
+
+// ✅ CORS Configuration
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://dishcraft-frontend.onrender.com'
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log('❌ CORS Blocked:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
+}));
+
+// ✅ Middleware
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+
+// ✅ Logging Middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  next();
+});
+
+// ✅ Contact Route
+app.use('/api/contact', contactRoutes);
+
+// ✅ Fallback
+app.get('/', (req, res) => {
+  res.send('🚀 DishCraft backend is running');
+});
+
+
+
 
 // Utility functions for recipe generation
 const generateInstructions = (cookingMethod, ingredients) => {
