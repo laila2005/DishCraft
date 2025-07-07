@@ -125,14 +125,15 @@ const HomePage = () => {
         console.log(`Debug: Recipe ingredients:`, recipeIngredientNames);
 
         userIngredientNames.forEach(userIng => {
-          // Check for exact match first
-          if (recipeIngredientNames.includes(userIng)) {
+          const userIngLower = userIng.toLowerCase();
+          // Check for exact match first (case-insensitive)
+          if (recipeIngredientNames.some(recipeIng => recipeIng.toLowerCase() === userIngLower)) {
             console.log(`Debug: Exact match found for "${userIng}"`);
             matchCount++;
           } else {
-            // Check for partial matches (user ingredient is part of recipe ingredient)
+            // Check for partial matches (user ingredient is part of recipe ingredient, case-insensitive)
             const hasPartialMatch = recipeIngredientNames.some(recipeIng =>
-              recipeIng.includes(userIng) || userIng.includes(recipeIng)
+              recipeIng.toLowerCase().includes(userIngLower) || userIngLower.includes(recipeIng.toLowerCase())
             );
             if (hasPartialMatch) {
               console.log(`Debug: Partial match found for "${userIng}"`);
@@ -143,26 +144,30 @@ const HomePage = () => {
           }
         });
 
-        console.log(`Debug: Final match count for "${recipe.name}": ${matchCount}/${totalIngredients}`);
+        console.log(`Debug: Final match count for "${recipe.name}": ${matchCount}/${userIngredientNames.length}`);
 
-        // Calculate percentage match
-        const matchPercentage = totalIngredients > 0 ? (matchCount / totalIngredients) * 100 : 0;
+        // Calculate percentage match based on user's input ingredients
+        const matchPercentage = userIngredientNames.length > 0 ? (matchCount / userIngredientNames.length) * 100 : 0;
 
         return {
           ...recipe,
           matchScore: matchCount,
           matchPercentage,
           matchedIngredients: matchCount,
-          totalIngredients
+          totalUserIngredients: userIngredientNames.length
         };
       });
 
       // Filter recipes with at least 50% ingredient match and sort by match score
       const filtered = scoredRecipes
         .filter(recipe => recipe.matchPercentage >= 50)
-        .sort((a, b) => b.matchScore - a.matchScore);
+        .sort((a, b) => {
+          if (b.matchScore !== a.matchScore) return b.matchScore - a.matchScore;
+          if (b.matchPercentage !== a.matchPercentage) return b.matchPercentage - a.matchPercentage;
+          return a.name.localeCompare(b.name);
+        });
 
-            if (filtered.length > 0) {
+      if (filtered.length > 0) {
         // Remove duplicates based on recipe name and ingredients to handle true duplicates
         const uniqueRecipes = filtered.filter((recipe, index, self) => {
           const recipeKey = `${recipe.name.toLowerCase()}-${recipe.ingredients.map(ing => ing.name.toLowerCase()).sort().join(',')}`;
