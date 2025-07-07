@@ -126,7 +126,17 @@ const chefRecipeSchema = new mongoose.Schema({
     type: String,
     required: false,
     default: ""
-  }
+  },
+  chefNotes: {
+    type: String,
+    default: ''
+  },
+  tips: [{
+    type: String
+  }],
+  equipment: [{
+    type: String
+  }]
 
 }, {
   timestamps: true

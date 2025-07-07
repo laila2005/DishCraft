@@ -489,6 +489,24 @@ const HomePage = () => {
             <div className="recipes-list">
               {generatedRecipes.map((generatedRecipe, recipeIdx) => (
                 <div className="generated-recipe" key={recipeIdx}>
+                  {/* Recipe Image */}
+                  {generatedRecipe.image && (
+                    <div className="recipe-image-container" style={{ textAlign: 'center', marginBottom: 16 }}>
+                      <img
+                        src={generatedRecipe.image}
+                        alt={generatedRecipe.name}
+                        style={{
+                          width: '100%',
+                          maxWidth: 400,
+                          maxHeight: 220,
+                          objectFit: 'cover',
+                          borderRadius: 10,
+                          boxShadow: '0 2px 12px rgba(0,0,0,0.08)'
+                        }}
+                        onError={e => { e.target.onerror = null; e.target.src = '/logo192.png'; }}
+                      />
+                    </div>
+                  )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                     <h3>{generatedRecipe.name}</h3>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -622,6 +640,37 @@ const HomePage = () => {
                         ))}
                     </ul>
                   </div>
+
+                  {(generatedRecipe.chefNotes || (generatedRecipe.tips && generatedRecipe.tips.length > 0) || (generatedRecipe.equipment && generatedRecipe.equipment.length > 0)) && (
+                    <div className="extra-recipe-info" style={{ marginTop: 18 }}>
+                      {generatedRecipe.chefNotes && (
+                        <div className="chef-notes" style={{ marginBottom: 10 }}>
+                          <h4>💭 Chef Notes</h4>
+                          <div style={{ background: '#f8f9fa', borderRadius: 8, padding: 10, fontStyle: 'italic', color: '#444' }}>{generatedRecipe.chefNotes}</div>
+                        </div>
+                      )}
+                      {generatedRecipe.tips && generatedRecipe.tips.length > 0 && generatedRecipe.tips.some(tip => tip && tip.trim()) && (
+                        <div className="recipe-tips" style={{ marginBottom: 10 }}>
+                          <h4>Tips</h4>
+                          <ul style={{ margin: 0, paddingLeft: 18 }}>
+                            {generatedRecipe.tips.filter(tip => tip && tip.trim()).map((tip, idx) => (
+                              <li key={idx}>{tip}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {generatedRecipe.equipment && generatedRecipe.equipment.length > 0 && generatedRecipe.equipment.some(eq => eq && eq.trim()) && (
+                        <div className="recipe-equipment">
+                          <h4>Equipment Needed</h4>
+                          <ul style={{ margin: 0, paddingLeft: 18 }}>
+                            {generatedRecipe.equipment.filter(eq => eq && eq.trim()).map((eq, idx) => (
+                              <li key={idx}>{eq}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Feedback Section */}
                   <div className="recipe-feedback">

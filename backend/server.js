@@ -723,20 +723,24 @@ app.post("/api/chef-recipes", authenticateToken, requireChef, async (req, res) =
       // Parse arrays if sent as strings (for multipart)
       let ingredients = body.ingredients;
       let instructions = body.instructions;
+      let dietaryTags = body.dietaryTags;
+      let tips = body.tips;
+      let equipment = body.equipment;
       if (typeof ingredients === 'string') ingredients = JSON.parse(ingredients);
       if (typeof instructions === 'string') instructions = JSON.parse(instructions);
-
+      if (typeof dietaryTags === 'string') dietaryTags = JSON.parse(dietaryTags);
+      if (typeof tips === 'string') tips = JSON.parse(tips);
+      if (typeof equipment === 'string') equipment = JSON.parse(equipment);
       // Coerce and validate numeric fields
       const prepTime = Number(body.prepTime);
       const cookTime = Number(body.cookTime);
       const servings = Number(body.servings);
       const totalTime = Number(body.totalTime) || (prepTime + cookTime);
       const category = body.category;
-
+      const chefNotes = typeof body.chefNotes === 'string' ? body.chefNotes : '';
       if (!body.name || !category || isNaN(prepTime) || isNaN(cookTime) || isNaN(servings)) {
         return res.status(400).json({ message: 'Missing or invalid required fields.' });
       }
-
       // Create recipe object for similarity check
       const newRecipeData = {
         name: body.name,
@@ -752,7 +756,11 @@ app.post("/api/chef-recipes", authenticateToken, requireChef, async (req, res) =
         servings,
         category,
         image: imageUrl || body.image,
-        chef: req.user._id
+        chef: req.user._id,
+        dietaryTags: dietaryTags || [],
+        chefNotes: chefNotes,
+        tips: tips || [],
+        equipment: equipment || []
       };
 
       // Check for similar recipes before saving
@@ -793,170 +801,86 @@ app.post("/api/chef-recipes", authenticateToken, requireChef, async (req, res) =
 });
 
 // Update chef recipe (PUT endpoint for editing)
-app.put("/api/chef-recipes/:id", authenticateToken, requireChef, async (req, res) => {
-  try {
-    console.log("[PUT] Updating recipe:", req.params.id);
-    console.log("[PUT] User:", req.user._id);
-    console.log("[PUT] Request body:", req.body);
+const singleUpload = upload.single('image');
 
-    const recipeId = req.params.id;
-    if (!mongoose.Types.ObjectId.isValid(recipeId)) {
-      console.log("[PUT] Invalid recipe ID format:", recipeId);
-      return res.status(400).json({ message: "Invalid recipe ID format." });
+app.put('/api/chef-recipes/:id', authenticateToken, requireChef, (req, res) => {
+  singleUpload(req, res, async function (err) {
+    if (err) {
+      return res.status(400).json({ message: err.message });
     }
-
-    // Find the recipe and ensure the chef owns it
-    const recipe = await ChefRecipe.findById(recipeId);
-    if (!recipe) {
-      console.log("[PUT] Recipe not found:", recipeId);
-      return res.status(404).json({ message: "Recipe not found" });
-    }
-    console.log("[PUT] Recipe found:", recipe._id, "Owner:", recipe.chef);
-    if (recipe.chef.toString() !== req.user._id.toString()) {
-      console.log("[PUT] Authorization failed. Recipe owner:", recipe.chef, "User:", req.user._id);
-      return res.status(403).json({ message: "You are not authorized to edit this recipe." });
-    }
-
-    // Parse arrays if sent as strings
-    let ingredients = req.body.ingredients;
-    let instructions = req.body.instructions;
-    if (typeof ingredients === 'string') ingredients = JSON.parse(ingredients);
-    if (typeof instructions === 'string') instructions = JSON.parse(instructions);
-
-    // Coerce and validate numeric fields
-    const prepTime = Number(req.body.prepTime);
-    const cookTime = Number(req.body.cookTime);
-    const servings = Number(req.body.servings);
-    const totalTime = Number(req.body.totalTime) || (prepTime + cookTime);
-
-    if (!req.body.name || !req.body.category || isNaN(prepTime) || isNaN(cookTime) || isNaN(servings)) {
-      return res.status(400).json({ message: 'Missing or invalid required fields.' });
-    }
-
-    // Function to calculate similarity between two recipes (same as in POST)
-    const calculateSimilarity = (recipe1, recipe2) => {
-      let similarityScore = 0;
-      let totalChecks = 0;
-
-      // Check name similarity (30% weight)
-      const nameSimilarity = recipe1.name.toLowerCase() === recipe2.name.toLowerCase() ? 1 : 0;
-      similarityScore += nameSimilarity * 0.3;
-      totalChecks += 0.3;
-
-      // Check ingredients similarity (40% weight)
-      const recipe1Ingredients = recipe1.ingredients.map(ing => ing.name.toLowerCase()).sort();
-      const recipe2Ingredients = recipe2.ingredients.map(ing => ing.name.toLowerCase()).sort();
-      const ingredientSimilarity = recipe1Ingredients.length > 0 && recipe2Ingredients.length > 0
-        ? recipe1Ingredients.filter(ing => recipe2Ingredients.includes(ing)).length / Math.max(recipe1Ingredients.length, recipe2Ingredients.length)
-        : 0;
-      similarityScore += ingredientSimilarity * 0.4;
-      totalChecks += 0.4;
-
-      // Check cooking method similarity (10% weight)
-      const methodSimilarity = recipe1.cookingMethod && recipe2.cookingMethod
-        ? recipe1.cookingMethod.toLowerCase() === recipe2.cookingMethod.toLowerCase() ? 1 : 0
-        : 0;
-      similarityScore += methodSimilarity * 0.1;
-      totalChecks += 0.1;
-
-      // Check cuisine similarity (10% weight)
-      const cuisineSimilarity = recipe1.cuisine && recipe2.cuisine
-        ? recipe1.cuisine.toLowerCase() === recipe2.cuisine.toLowerCase() ? 1 : 0
-        : 0;
-      similarityScore += cuisineSimilarity * 0.1;
-      totalChecks += 0.1;
-
-      // Check difficulty similarity (10% weight)
-      const difficultySimilarity = recipe1.difficulty && recipe2.difficulty
-        ? recipe1.difficulty.toLowerCase() === recipe2.difficulty.toLowerCase() ? 1 : 0
-        : 0;
-      similarityScore += difficultySimilarity * 0.1;
-      totalChecks += 0.1;
-
-      return totalChecks > 0 ? (similarityScore / totalChecks) * 100 : 0;
-    };
-
-    // Check for similar recipes (excluding the current recipe being updated)
-    const updatedRecipeData = {
-      name: req.body.name,
-      description: req.body.description,
-      ingredients,
-      instructions,
-      cookingMethod: req.body.cookingMethod,
-      cuisine: req.body.cuisine,
-      difficulty: req.body.difficulty,
-      prepTime,
-      cookTime,
-      totalTime,
-      servings,
-      category: req.body.category
-    };
-
-    const existingRecipes = await ChefRecipe.find({ chef: req.user._id, _id: { $ne: recipeId } });
-    const similarRecipes = [];
-
-    for (const existingRecipe of existingRecipes) {
-      const similarity = calculateSimilarity(updatedRecipeData, existingRecipe);
-      if (similarity >= 98) {
-        similarRecipes.push({
-          recipe: existingRecipe,
-          similarity: similarity
-        });
+    try {
+      const recipeId = req.params.id;
+      if (!mongoose.Types.ObjectId.isValid(recipeId)) {
+        return res.status(400).json({ message: 'Invalid recipe ID format.' });
       }
-    }
-
-    if (similarRecipes.length > 0) {
-      const similarRecipe = similarRecipes[0];
-      return res.status(409).json({
-        message: `Recipe too similar to existing recipe "${similarRecipe.recipe.name}" (${Math.round(similarRecipe.similarity)}% similarity). Please modify your recipe to make it more unique.`,
-        similarity: similarRecipe.similarity,
-        existingRecipe: similarRecipe.recipe
+      // Find the recipe and ensure the chef owns it
+      const recipe = await ChefRecipe.findById(recipeId);
+      if (!recipe) {
+        return res.status(404).json({ message: 'Recipe not found' });
+      }
+      if (recipe.chef.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ message: 'You are not authorized to edit this recipe.' });
+      }
+      // Parse arrays if sent as strings
+      let ingredients = req.body.ingredients;
+      let instructions = req.body.instructions;
+      let dietaryTags = req.body.dietaryTags;
+      let tips = req.body.tips;
+      let equipment = req.body.equipment;
+      if (typeof ingredients === 'string') ingredients = JSON.parse(ingredients);
+      if (typeof instructions === 'string') instructions = JSON.parse(instructions);
+      if (typeof dietaryTags === 'string') dietaryTags = JSON.parse(dietaryTags);
+      if (typeof tips === 'string') tips = JSON.parse(tips);
+      if (typeof equipment === 'string') equipment = JSON.parse(equipment);
+      const chefNotes = typeof req.body.chefNotes === 'string' ? req.body.chefNotes : '';
+      // Coerce and validate numeric fields
+      const prepTime = Number(req.body.prepTime);
+      const cookTime = Number(req.body.cookTime);
+      const servings = Number(req.body.servings);
+      const totalTime = Number(req.body.totalTime) || (prepTime + cookTime);
+      if (!req.body.name || !req.body.category || isNaN(prepTime) || isNaN(cookTime) || isNaN(servings)) {
+        return res.status(400).json({ message: 'Missing or invalid required fields.' });
+      }
+      // Use uploaded file if present
+      let imageUrl = req.body.image;
+      if (req.file) {
+        imageUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+      }
+      // Check for similar recipes (reuse your similarity logic if needed)
+      // Update the recipe
+      const updatedRecipe = await ChefRecipe.findByIdAndUpdate(
+        recipeId,
+        {
+          name: req.body.name,
+          description: req.body.description,
+          ingredients,
+          instructions,
+          cookingMethod: req.body.cookingMethod,
+          cuisine: req.body.cuisine,
+          difficulty: req.body.difficulty,
+          prepTime,
+          cookTime,
+          totalTime,
+          servings,
+          category: req.body.category,
+          image: imageUrl,
+          dietaryTags: dietaryTags || [],
+          chefNotes: chefNotes,
+          tips: tips || [],
+          equipment: equipment || [],
+          tags: req.body.tags || []
+        },
+        { new: true }
+      );
+      res.status(200).json({
+        message: 'Recipe updated successfully.',
+        recipe: updatedRecipe
       });
+    } catch (error) {
+      console.error('[PUT] Error updating chef recipe:', error);
+      res.status(500).json({ message: 'Error updating chef recipe', error: error.message });
     }
-
-    // Update the recipe
-    console.log("[PUT] Updating recipe with data:", {
-      name: req.body.name,
-      cookingMethod: req.body.cookingMethod,
-      category: req.body.category,
-      prepTime,
-      cookTime,
-      servings
-    });
-
-    const updatedRecipe = await ChefRecipe.findByIdAndUpdate(
-      recipeId,
-      {
-        name: req.body.name,
-        description: req.body.description,
-        ingredients,
-        instructions,
-        cookingMethod: req.body.cookingMethod,
-        cuisine: req.body.cuisine,
-        difficulty: req.body.difficulty,
-        prepTime,
-        cookTime,
-        totalTime,
-        servings,
-        category: req.body.category,
-        dietaryTags: req.body.dietaryTags || [],
-        chefNotes: req.body.chefNotes,
-        tips: req.body.tips || [],
-        equipment: req.body.equipment || [],
-        tags: req.body.tags || []
-      },
-      { new: true }
-    );
-
-    console.log("[PUT] Recipe updated successfully:", updatedRecipe._id);
-    res.status(200).json({
-      message: "Recipe updated successfully.",
-      recipe: updatedRecipe
-    });
-  } catch (error) {
-    console.error("[PUT] Error updating chef recipe:", error);
-    res.status(500).json({ message: "Error updating chef recipe", error: error.message });
-  }
+  });
 });
 
 // --- Enhanced Recipe Actions ---
