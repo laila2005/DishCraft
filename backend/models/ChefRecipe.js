@@ -124,9 +124,19 @@ const chefRecipeSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now },
   cookingMethod: {
     type: String,
-    required: true,
-    enum: ["Steaming", "Boiling", "Grilling", "Baking", "Stir-frying"]
-  }
+    required: false,
+    default: ""
+  },
+  chefNotes: {
+    type: String,
+    default: ''
+  },
+  tips: [{
+    type: String
+  }],
+  equipment: [{
+    type: String
+  }]
 
 }, {
   timestamps: true

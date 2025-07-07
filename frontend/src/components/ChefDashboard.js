@@ -27,7 +27,7 @@ const ChefDashboard = () => {
 
   // Form state for creating/editing recipes
   const [recipeForm, setRecipeForm] = useState({
-    name: '', // was title
+    name: '',
     description: '',
     category: 'main-course',
     cuisine: 'american',
@@ -35,15 +35,18 @@ const ChefDashboard = () => {
     prepTime: 15,
     cookTime: 30,
     servings: 4,
-    cookingMethod: '', // new required field
+    cookingMethod: '',
     ingredients: [{ name: '', quantity: '', unit: '', notes: '' }],
     instructions: [{ stepNumber: 1, instruction: '', duration: '', temperature: '' }],
     dietaryTags: [],
     chefNotes: '',
     tips: [''],
-    equipment: [''],
-    tags: ['']
+    equipment: ['']
   });
+
+  // Add to form state
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState('');
 
   // Fetch chef's recipes
   const fetchMyRecipes = async () => {
@@ -97,7 +100,9 @@ const ChefDashboard = () => {
     setRecipeForm(prev => ({
       ...prev,
       [fieldName]: prev[fieldName].map((item, i) =>
-        i === index ? { ...item, [subField]: value } : item
+        i === index
+          ? (subField ? { ...item, [subField]: value } : (typeof item === 'object' ? { ...item } : value))
+          : item
       )
     }));
   };
@@ -128,84 +133,110 @@ const ChefDashboard = () => {
     }));
   };
 
+  // Handle image file change
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  };
+
   // Submit recipe (create or update)
   const handleSubmitRecipe = async (e) => {
     e.preventDefault();
-    // Validate and sanitize numeric fields
-    const prepTime = Number(recipeForm.prepTime);
-    const cookTime = Number(recipeForm.cookTime);
-    const servings = Number(recipeForm.servings);
-    const category = recipeForm.category;
-    const name = recipeForm.name;
-    const cookingMethod = recipeForm.cookingMethod;
+    // Frontend validation for required fields
+    if (!recipeForm.name || !recipeForm.name.trim()) {
+      showError('Recipe name is required.');
+      return;
+    }
+    if (!recipeForm.description || !recipeForm.description.trim()) {
+      showError('Recipe description is required.');
+      return;
+    }
+    if (!recipeForm.category || !recipeForm.cuisine) {
+      showError('Category and cuisine are required.');
+      return;
+    }
+    if (!recipeForm.prepTime || isNaN(recipeForm.prepTime) || recipeForm.prepTime < 1) {
+      showError('Prep time must be at least 1 minute.');
+      return;
+    }
+    if (!recipeForm.cookTime || isNaN(recipeForm.cookTime) || recipeForm.cookTime < 1) {
+      showError('Cook time must be at least 1 minute.');
+      return;
+    }
+    if (!recipeForm.servings || isNaN(recipeForm.servings) || recipeForm.servings < 1) {
+      showError('Servings must be at least 1.');
+      return;
+    }
+    if (!recipeForm.ingredients || !Array.isArray(recipeForm.ingredients) || recipeForm.ingredients.length === 0 || recipeForm.ingredients.some(ing => !ing.name || !ing.quantity)) {
+      showError('Each ingredient must have a name and quantity.');
+      return;
+    }
+    if (!recipeForm.instructions || !Array.isArray(recipeForm.instructions) || recipeForm.instructions.length === 0 || recipeForm.instructions.some(inst => !inst.instruction || !inst.stepNumber)) {
+      showError('Each instruction must have a step number and instruction.');
+      return;
+    }
 
-    if (!name || !name.trim()) {
-      showError('Please enter a recipe name.');
-      return;
-    }
-    if (!cookingMethod || !cookingMethod.trim()) {
-      showError('Please enter a cooking method.');
-      return;
-    }
-    if (!category || !category.trim()) {
-      showError('Please select a category.');
-      return;
-    }
-    if (!servings || isNaN(servings) || servings < 1) {
-      showError('Please enter a valid number of servings.');
-      return;
-    }
-    if (!prepTime || isNaN(prepTime) || prepTime < 1) {
-      showError('Please enter a valid prep time.');
-      return;
-    }
-    if (!cookTime || isNaN(cookTime) || cookTime < 1) {
-      showError('Please enter a valid cook time.');
-      return;
-    }
-
-    // Calculate totalTime safely
-    const totalTime = prepTime + cookTime;
-    if (isNaN(totalTime) || totalTime < 1) {
-      showError('Total time must be a valid positive number.');
+    if (!imageFile && !editingRecipe) {
+      showError('Please upload a recipe image.');
       return;
     }
 
     try {
       // Clean up form data and map fields
+      const cleanedIngredients = recipeForm.ingredients
+        .filter(ing => ing.name && ing.quantity)
+        .map(({ _id, ...rest }) => rest);
+
+      const cleanedInstructions = recipeForm.instructions
+        .filter(inst => inst.instruction && inst.stepNumber)
+        .map(({ _id, ...rest }) => ({
+          ...rest,
+          stepNumber: Number(rest.stepNumber)
+        }));
+
       const cleanedForm = {
         ...recipeForm,
-        name,
-        category,
-        servings,
-        prepTime,
-        cookTime,
-        totalTime,
-        ingredients: recipeForm.ingredients.filter(ing => ing.name && ing.name.trim()),
-        instructions: recipeForm.instructions.filter(inst => inst.instruction && inst.instruction.trim()),
+        name: recipeForm.name.trim(),
+        description: recipeForm.description.trim(),
         tips: recipeForm.tips.filter(tip => tip && tip.trim()),
         equipment: recipeForm.equipment.filter(eq => eq && eq.trim()),
-        tags: recipeForm.tags.filter(tag => tag && tag.trim())
+        ingredients: cleanedIngredients,
+        instructions: cleanedInstructions,
+        category: recipeForm.category,
+        cuisine: recipeForm.cuisine,
+        prepTime: Number(recipeForm.prepTime),
+        cookTime: Number(recipeForm.cookTime),
+        servings: Number(recipeForm.servings)
       };
+      let formData = new FormData();
+      Object.entries(cleanedForm).forEach(([key, value]) => {
+        if (Array.isArray(value) || typeof value === 'object') {
+          formData.append(key, JSON.stringify(value));
+        } else {
+          formData.append(key, value);
+        }
+      });
+      if (imageFile) {
+        formData.append('image', imageFile);
+      } else if (editingRecipe && editingRecipe.image) {
+        formData.append('image', editingRecipe.image);
+      }
+      console.log('Submitting FormData:');
+      for (let pair of formData.entries()) {
+        console.log(pair[0], pair[1]);
+      }
+      let headers = { 'Authorization': `Bearer ${token}` };
+      headers['Content-Type'] = 'multipart/form-data';
       if (editingRecipe) {
-        console.log('Updating recipe:', editingRecipe._id, cleanedForm);
-        const response = await axios.put(`${BACKEND_URL}/api/chef-recipes/${editingRecipe._id}`, cleanedForm, {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        console.log('Update response:', response.data);
+        const url = `${BACKEND_URL}/api/chef-recipes/${editingRecipe._id}`;
+        const response = await axios.put(url, formData, { headers });
         showSuccess('Recipe updated successfully!');
       } else {
-        console.log('Creating new recipe:', cleanedForm);
-        const response = await axios.post(`${BACKEND_URL}/api/chef-recipes`, cleanedForm, {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        console.log('Create response:', response.data);
+        const url = `${BACKEND_URL}/api/chef-recipes`;
+        const response = await axios.post(url, formData, { headers });
         showSuccess('Recipe created successfully!');
       }
       resetForm();
@@ -239,9 +270,10 @@ const ChefDashboard = () => {
       dietaryTags: [],
       chefNotes: '',
       tips: [''],
-      equipment: [''],
-      tags: ['']
+      equipment: ['']
     });
+    setImageFile(null);
+    setImagePreview('');
     setEditingRecipe(null);
     setShowCreateForm(false);
   };
@@ -263,9 +295,10 @@ const ChefDashboard = () => {
       dietaryTags: recipe.dietaryTags || [],
       chefNotes: recipe.chefNotes || '',
       tips: recipe.tips && recipe.tips.length ? recipe.tips : [''],
-      equipment: recipe.equipment && recipe.equipment.length ? recipe.equipment : [''],
-      tags: recipe.tags && recipe.tags.length ? recipe.tags : ['']
+      equipment: recipe.equipment && recipe.equipment.length ? recipe.equipment : ['']
     });
+    setImagePreview(recipe.image || '');
+    setImageFile(null);
     setEditingRecipe(recipe);
     setShowCreateForm(true);
   };
@@ -286,8 +319,6 @@ const ChefDashboard = () => {
       }
     }
   };
-
-
 
   // Get status badge color
   const getStatusBadgeColor = (status) => {
@@ -395,13 +426,12 @@ const ChefDashboard = () => {
                       />
                     </div>
                     <div className="form-group">
-                      <label>Cooking Method *</label>
+                      <label>Cooking Method (Optional)</label>
                       <input
                         type="text"
                         name="cookingMethod"
                         value={recipeForm.cookingMethod}
                         onChange={handleInputChange}
-                        required
                         placeholder="e.g. Baking, Frying, Boiling, etc."
                       />
                     </div>
@@ -422,6 +452,21 @@ const ChefDashboard = () => {
                           ]
                         }}
                       />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Recipe Image</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageChange}
+                        style={{ marginBottom: 8 }}
+                      />
+                      {imagePreview && (
+                        <div style={{ marginTop: 10 }}>
+                          <img src={imagePreview} alt="Preview" style={{ maxWidth: 220, maxHeight: 140, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }} />
+                        </div>
+                      )}
                     </div>
 
                     <div className="form-row">
@@ -647,7 +692,7 @@ const ChefDashboard = () => {
                           <input
                             type="text"
                             placeholder="Cooking tip"
-                            value={tip}
+                            value={tip || ''}
                             onChange={(e) => handleArrayFieldChange('tips', index, null, e.target.value)}
                           />
                           <button
@@ -675,7 +720,7 @@ const ChefDashboard = () => {
                           <input
                             type="text"
                             placeholder="Equipment item"
-                            value={item}
+                            value={item || ''}
                             onChange={(e) => handleArrayFieldChange('equipment', index, null, e.target.value)}
                           />
                           <button
@@ -693,34 +738,6 @@ const ChefDashboard = () => {
                         className="add-btn"
                       >
                         ➕ Add Equipment
-                      </button>
-                    </div>
-
-                    <div className="form-group">
-                      <label>Tags (for search)</label>
-                      {recipeForm.tags.map((tag, index) => (
-                        <div key={index} className="tag-row">
-                          <input
-                            type="text"
-                            placeholder="Search tag"
-                            value={tag}
-                            onChange={(e) => handleArrayFieldChange('tags', index, null, e.target.value)}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeArrayItem('tags', index)}
-                            className="remove-btn"
-                          >
-                            🗑️
-                          </button>
-                        </div>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => addArrayItem('tags', '')}
-                        className="add-btn"
-                      >
-                        ➕ Add Tag
                       </button>
                     </div>
                   </div>
@@ -1026,7 +1043,7 @@ const RecipeCapsule = ({ recipe, expanded, onClick, handleEditRecipe, handleDele
               }}>
                 <p style={{ margin: '0', color: '#666', fontSize: '14px' }}>
                   💬 <strong>Want to share your thoughts?</strong><br />
-                  Please <button 
+                  Please <button
                     onClick={() => navigate('/auth')}
                     style={{
                       background: 'none',

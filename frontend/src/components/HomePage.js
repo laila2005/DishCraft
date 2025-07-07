@@ -28,12 +28,7 @@ const HomePage = () => {
   const [loadingRecipe, setLoadingRecipe] = useState(false);
   const [errorRecipe, setErrorRecipe] = useState(null);
 
-  const [recipeOptions, setRecipeOptions] = useState({
-    cookingMethod: 'Stir-frying',
-    cuisine: 'Italian',
-    difficulty: 'Medium',
-    prepTime: '20-30 minutes'
-  });
+  // Removed recipe options - now using ingredient-based matching
 
   const getBackendUrl = useCallback(() => {
     return process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
@@ -89,12 +84,7 @@ const HomePage = () => {
     setUserIngredients(prev => prev.filter(ing => ing !== ingredientName));
   }, []);
 
-  const handleRecipeOptionChange = useCallback((option, value) => {
-    setRecipeOptions(prev => ({
-      ...prev,
-      [option]: value
-    }));
-  }, []);
+  // Removed recipe option change handler - no longer needed
 
   const generateRecipe = useCallback(async () => {
     if (userIngredients.length === 0) {
@@ -104,20 +94,99 @@ const HomePage = () => {
     try {
       setLoadingRecipe(true);
       setErrorRecipe(null);
+
       // Fetch all public chef recipes from the backend
       const response = await axios.get(`${getBackendUrl()}/api/recipes?isPublic=true&limit=1000`);
       const allChefRecipes = response.data && Array.isArray(response.data.data) ? response.data.data : [];
-      // Filter recipes that match ALL selected ingredients
-      const filtered = allChefRecipes.filter(recipe => {
-        const recipeIngredientNames = recipe.ingredients.map(ing => ing.name.toLowerCase());
-        // Check if every user ingredient is in the recipe's ingredients
-        return userIngredients.every(ing => recipeIngredientNames.includes(ing.toLowerCase()));
+
+      // Debug: Log the API response
+      console.log('Debug: API Response:', response.data);
+      console.log('Debug: Total recipes fetched:', allChefRecipes.length);
+
+      // Debug: Log all recipe names and their ingredients
+      allChefRecipes.forEach((recipe, index) => {
+        console.log(`Debug: Recipe ${index + 1}:`, recipe.name);
+        console.log(`Debug: Recipe ${index + 1} ingredients:`, recipe.ingredients.map(ing => ing.name));
+        console.log(`Debug: Recipe ${index + 1} isPublic:`, recipe.isPublic);
       });
+
+      // Score recipes based on ingredient matching with improved logic
+      const scoredRecipes = allChefRecipes.map(recipe => {
+        const recipeIngredientNames = recipe.ingredients.map(ing => ing.name.toLowerCase());
+        const userIngredientNames = userIngredients.map(ing => ing.toLowerCase());
+
+        // Calculate match score with improved matching
+        let matchCount = 0;
+        let totalIngredients = recipeIngredientNames.length;
+
+        // Debug: Log the matching process for this recipe
+        console.log(`Debug: Matching for recipe "${recipe.name}":`);
+        console.log(`Debug: User ingredients:`, userIngredientNames);
+        console.log(`Debug: Recipe ingredients:`, recipeIngredientNames);
+
+        userIngredientNames.forEach(userIng => {
+          const userIngLower = userIng.toLowerCase();
+          // Check for exact match first (case-insensitive)
+          if (recipeIngredientNames.some(recipeIng => recipeIng.toLowerCase() === userIngLower)) {
+            console.log(`Debug: Exact match found for "${userIng}"`);
+            matchCount++;
+          } else {
+            // Check for partial matches (user ingredient is part of recipe ingredient, case-insensitive)
+            const hasPartialMatch = recipeIngredientNames.some(recipeIng =>
+              recipeIng.toLowerCase().includes(userIngLower) || userIngLower.includes(recipeIng.toLowerCase())
+            );
+            if (hasPartialMatch) {
+              console.log(`Debug: Partial match found for "${userIng}"`);
+              matchCount++;
+            } else {
+              console.log(`Debug: No match found for "${userIng}"`);
+            }
+          }
+        });
+
+        console.log(`Debug: Final match count for "${recipe.name}": ${matchCount}/${userIngredientNames.length}`);
+
+        // Calculate percentage match based on user's input ingredients
+        const matchPercentage = userIngredientNames.length > 0 ? (matchCount / userIngredientNames.length) * 100 : 0;
+
+        return {
+          ...recipe,
+          matchScore: matchCount,
+          matchPercentage,
+          matchedIngredients: matchCount,
+          totalUserIngredients: userIngredientNames.length
+        };
+      });
+
+      // Filter recipes with at least 50% ingredient match and sort by match score
+      const filtered = scoredRecipes
+        .filter(recipe => recipe.matchPercentage >= 50)
+        .sort((a, b) => {
+          if (b.matchScore !== a.matchScore) return b.matchScore - a.matchScore;
+          if (b.matchPercentage !== a.matchPercentage) return b.matchPercentage - a.matchPercentage;
+          return a.name.localeCompare(b.name);
+        });
+
       if (filtered.length > 0) {
-        setGeneratedRecipes(filtered.slice(0, 5)); // Show up to 5 matches
+        // Remove duplicates based on recipe name and ingredients to handle true duplicates
+        const uniqueRecipes = filtered.filter((recipe, index, self) => {
+          const recipeKey = `${recipe.name.toLowerCase()}-${recipe.ingredients.map(ing => ing.name.toLowerCase()).sort().join(',')}`;
+          return index === self.findIndex(r => {
+            const rKey = `${r.name.toLowerCase()}-${r.ingredients.map(ing => ing.name.toLowerCase()).sort().join(',')}`;
+            return rKey === recipeKey;
+          });
+        });
+        setGeneratedRecipes(uniqueRecipes.slice(0, 5)); // Show up to 5 best matches
+        showSuccess(`Found ${uniqueRecipes.length} unique recipes matching your ingredients!`);
       } else {
+        // Debug: Log what ingredients are available in recipes
+        console.log('Debug: User ingredients:', userIngredients);
+        console.log('Debug: Available recipes:', allChefRecipes.length);
+        if (allChefRecipes.length > 0) {
+          console.log('Debug: Sample recipe ingredients:', allChefRecipes[0].ingredients.map(ing => ing.name));
+        }
         setGeneratedRecipes([]);
-        showWarning('No chef recipes found with all selected ingredients.');
+        showWarning('No chef recipes found with your ingredients. Try adding more ingredients or different ones.');
       }
     } catch (error) {
       console.error('Error generating recipe:', error);
@@ -125,7 +194,7 @@ const HomePage = () => {
     } finally {
       setLoadingRecipe(false);
     }
-  }, [userIngredients, getBackendUrl]);
+  }, [userIngredients, getBackendUrl, showSuccess, showWarning, showError]);
 
   // Handle like/unlike recipe
   const handleLikeRecipe = async (recipeId, currentLikes = [], currentLiked = false) => {
@@ -198,19 +267,19 @@ const HomePage = () => {
       navigate('/auth');
       return;
     }
-    
+
     if (!feedbackText || feedbackText.trim() === '') {
       showError('Please enter a feedback comment.');
       return;
     }
-    
+
     try {
-      const response = await axios.post(`${getBackendUrl()}/api/chef-recipes/${recipeId}/feedback`, { 
-        text: feedbackText.trim() 
+      const response = await axios.post(`${getBackendUrl()}/api/chef-recipes/${recipeId}/feedback`, {
+        text: feedbackText.trim()
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      
+
       // Update the recipe in the generatedRecipes array
       setGeneratedRecipes(prev => prev.map(recipe => {
         if (recipe._id === recipeId) {
@@ -221,7 +290,7 @@ const HomePage = () => {
         }
         return recipe;
       }));
-      
+
       showSuccess('Feedback added successfully!');
       return response.data;
     } catch (err) {
@@ -402,60 +471,7 @@ const HomePage = () => {
             )}
           </div>
 
-          <div className="recipe-options">
-            <h3>Recipe Options:</h3>
-            <div className="options-grid">
-              <div className="option-item">
-                <label>Cooking Method:</label>
-                <select
-                  value={recipeOptions.cookingMethod}
-                  onChange={(e) => handleRecipeOptionChange('cookingMethod', e.target.value)}
-                >
-                  <option value="Stir-frying">Stir-frying</option>
-                  <option value="Baking">Baking</option>
-                  <option value="Grilling">Grilling</option>
-                  <option value="Boiling">Boiling</option>
-                  <option value="Steaming">Steaming</option>
-                </select>
-              </div>
-              <div className="option-item">
-                <label>Cuisine:</label>
-                <select
-                  value={recipeOptions.cuisine}
-                  onChange={(e) => handleRecipeOptionChange('cuisine', e.target.value)}
-                >
-                  <option value="Italian">Italian</option>
-                  <option value="Chinese">Chinese</option>
-                  <option value="Mexican">Mexican</option>
-                  <option value="Indian">Indian</option>
-                  <option value="American">American</option>
-                </select>
-              </div>
-              <div className="option-item">
-                <label>Difficulty:</label>
-                <select
-                  value={recipeOptions.difficulty}
-                  onChange={(e) => handleRecipeOptionChange('difficulty', e.target.value)}
-                >
-                  <option value="Easy">Easy</option>
-                  <option value="Medium">Medium</option>
-                  <option value="Hard">Hard</option>
-                </select>
-              </div>
-              <div className="option-item">
-                <label>Prep Time:</label>
-                <select
-                  value={recipeOptions.prepTime}
-                  onChange={(e) => handleRecipeOptionChange('prepTime', e.target.value)}
-                >
-                  <option value="10-20 minutes">10-20 minutes</option>
-                  <option value="20-30 minutes">20-30 minutes</option>
-                  <option value="30-45 minutes">30-45 minutes</option>
-                  <option value="45+ minutes">45+ minutes</option>
-                </select>
-              </div>
-            </div>
-          </div>
+          {/* Recipe options removed - now using ingredient-based matching */}
 
           <button
             onClick={generateRecipe}
@@ -473,23 +489,41 @@ const HomePage = () => {
             <div className="recipes-list">
               {generatedRecipes.map((generatedRecipe, recipeIdx) => (
                 <div className="generated-recipe" key={recipeIdx}>
+                  {/* Recipe Image */}
+                  {generatedRecipe.image && (
+                    <div className="recipe-image-container" style={{ textAlign: 'center', marginBottom: 16 }}>
+                      <img
+                        src={generatedRecipe.image}
+                        alt={generatedRecipe.name}
+                        style={{
+                          width: '100%',
+                          maxWidth: 400,
+                          maxHeight: 220,
+                          objectFit: 'cover',
+                          borderRadius: 10,
+                          boxShadow: '0 2px 12px rgba(0,0,0,0.08)'
+                        }}
+                        onError={e => { e.target.onerror = null; e.target.src = '/logo192.png'; }}
+                      />
+                    </div>
+                  )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                     <h3>{generatedRecipe.name}</h3>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <button
                         className="like-btn"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleLikeRecipe(
-                            generatedRecipe._id, 
-                            generatedRecipe.likes || [], 
+                            generatedRecipe._id,
+                            generatedRecipe.likes || [],
                             generatedRecipe.likes?.some(id => id === user?._id) || false
                           );
                         }}
-                        style={{ 
-                          background: 'none', 
-                          border: 'none', 
-                          cursor: 'pointer', 
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
                           fontSize: '24px',
                           padding: '4px 8px',
                           borderRadius: '4px',
@@ -499,7 +533,7 @@ const HomePage = () => {
                       >
                         {generatedRecipe.likes?.some(id => id === user?._id) ? '💖' : '🤍'} <span style={{ color: '#333', fontWeight: '500' }}>{generatedRecipe.likes?.length || 0}</span>
                       </button>
-                      
+
                       {/* Rating Stars */}
                       <div className="rating-stars" style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
                         {[1, 2, 3, 4, 5].map((star) => {
@@ -512,14 +546,14 @@ const HomePage = () => {
                                 e.stopPropagation();
                                 handleRateRecipe(generatedRecipe._id, star);
                               }}
-                                                             style={{
-                                 background: 'none',
-                                 border: 'none',
-                                 cursor: 'pointer',
-                                 fontSize: '24px',
-                                 color: isRated ? '#FFD700' : '#ccc',
-                                 transition: 'color 0.2s'
-                               }}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                fontSize: '24px',
+                                color: isRated ? '#FFD700' : '#ccc',
+                                transition: 'color 0.2s'
+                              }}
                               title={`Rate ${star} star${star > 1 ? 's' : ''}`}
                             >
                               {isRated ? '★' : '☆'}
@@ -547,7 +581,10 @@ const HomePage = () => {
 
                   <div className="recipe-details">
                     <div className="detail-item">
-                      <strong>Cooking Time:</strong> {generatedRecipe.prepTime}
+                      <strong>Match Score:</strong> {generatedRecipe.matchedIngredients}/{generatedRecipe.totalIngredients} ingredients ({Math.round(generatedRecipe.matchPercentage)}% match)
+                    </div>
+                    <div className="detail-item">
+                      <strong>Cooking Time:</strong> {generatedRecipe.prepTime + generatedRecipe.cookTime} minutes
                     </div>
                     <div className="detail-item">
                       <strong>Difficulty:</strong> {generatedRecipe.difficulty}
@@ -604,10 +641,41 @@ const HomePage = () => {
                     </ul>
                   </div>
 
+                  {(generatedRecipe.chefNotes || (generatedRecipe.tips && generatedRecipe.tips.length > 0) || (generatedRecipe.equipment && generatedRecipe.equipment.length > 0)) && (
+                    <div className="extra-recipe-info" style={{ marginTop: 18 }}>
+                      {generatedRecipe.chefNotes && (
+                        <div className="chef-notes" style={{ marginBottom: 10 }}>
+                          <h4>💭 Chef Notes</h4>
+                          <div style={{ background: '#f8f9fa', borderRadius: 8, padding: 10, fontStyle: 'italic', color: '#444' }}>{generatedRecipe.chefNotes}</div>
+                        </div>
+                      )}
+                      {generatedRecipe.tips && generatedRecipe.tips.length > 0 && generatedRecipe.tips.some(tip => tip && tip.trim()) && (
+                        <div className="recipe-tips" style={{ marginBottom: 10 }}>
+                          <h4>Tips</h4>
+                          <ul style={{ margin: 0, paddingLeft: 18 }}>
+                            {generatedRecipe.tips.filter(tip => tip && tip.trim()).map((tip, idx) => (
+                              <li key={idx}>{tip}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {generatedRecipe.equipment && generatedRecipe.equipment.length > 0 && generatedRecipe.equipment.some(eq => eq && eq.trim()) && (
+                        <div className="recipe-equipment">
+                          <h4>Equipment Needed</h4>
+                          <ul style={{ margin: 0, paddingLeft: 18 }}>
+                            {generatedRecipe.equipment.filter(eq => eq && eq.trim()).map((eq, idx) => (
+                              <li key={idx}>{eq}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Feedback Section */}
                   <div className="recipe-feedback">
                     <h4>💬 Feedback ({generatedRecipe.feedbacks?.length || 0})</h4>
-                    
+
                     {/* Display existing feedbacks */}
                     {generatedRecipe.feedbacks && generatedRecipe.feedbacks.length > 0 ? (
                       <div className="feedbacks-list">
@@ -625,7 +693,7 @@ const HomePage = () => {
                     ) : (
                       <p className="no-feedback">No feedback yet. Be the first to share your thoughts!</p>
                     )}
-                    
+
                     {/* Add feedback form - only for logged-in users */}
                     {user ? (
                       <div className="add-feedback">
@@ -660,7 +728,7 @@ const HomePage = () => {
                       }}>
                         <p style={{ margin: '0', color: '#666', fontSize: '14px' }}>
                           💬 <strong>Want to share your thoughts?</strong><br />
-                          Please <button 
+                          Please <button
                             onClick={() => navigate('/auth')}
                             style={{
                               background: 'none',

@@ -149,8 +149,9 @@
 }
 
 .create-recipe-btn {
-  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-  color: white;
+  background: white;
+  color: #333;
+  border: 2px solid #28a745;
 }
 
 .refresh-btn {
@@ -262,7 +263,7 @@
 .form-header h2 {
   font-size: 2.2rem;
   font-weight: 800;
-  color: #764ba2;
+  color: white;
   margin-bottom: 18px;
   letter-spacing: -1px;
   text-align: left;
@@ -499,6 +500,8 @@
   padding: 30px;
   border-radius: 20px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 .recipes-section h2 {
@@ -1121,9 +1124,11 @@
   0% {
     background-position: 0% 50%;
   }
+
   50% {
     background-position: 100% 50%;
   }
+
   100% {
     background-position: 0% 50%;
   }
@@ -1145,4 +1150,3 @@
   width: 100%;
   max-width: 900px;
 }
-
