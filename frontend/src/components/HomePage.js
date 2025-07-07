@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useAlert } from '../contexts/AlertContext';
 import { useNavigate } from 'react-router-dom';
 import '../App.css';
+import logo from '../assets/logo.png';
 
 const HomePage = () => {
   const { user, isAuthenticated, logout, token } = useAuth();
@@ -359,9 +360,13 @@ const HomePage = () => {
     <div className="App">
       <header className="App-header">
         <div className="header-content">
-          <div className="header-left">
-            <h1>DishCraft</h1>
-            <p>Generate Your Next Meal</p>
+          <div className="header-left" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <img
+              src={logo}
+              alt="DishCraft Logo"
+              style={{ maxHeight: '70px', width: 'auto', marginBottom: '8px' }}
+            />
+            <p style={{ margin: 0, textAlign: 'center', marginLeft: '-4px' }}>Craft Your Own Dish</p>
           </div>
           <div className="main-navigation">
             {user && user.name ? (
@@ -407,7 +412,7 @@ const HomePage = () => {
 
       <main className="main-content">
         <div className="recipe-generator">
-          <h2>Generate Your Next Meal</h2>
+          <h2>Turn Ingredients into Inspiration</h2>
 
           {errorIngredients && (
             <div className="error-message">

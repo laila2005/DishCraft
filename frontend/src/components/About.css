@@ -1,0 +1,119 @@
+/* About.css - themed to match DishCraft system */
+
+:root {
+    /* Already defined in ProfileStyles.css, but included for clarity */
+    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --primary-color-start: #667eea;
+    --primary-color-end: #764ba2;
+    --text-color-dark: #333;
+    --text-color-medium: #666;
+    --background-light: #f8f9fa;
+    --card-background: #fff;
+    --border-color: #e0e0e0;
+}
+
+.about-page {
+    min-height: 100vh;
+    background: linear-gradient(-45deg, #667eea, #764ba2, #6a5acd, #8a2be2);
+    background-size: 400% 400%;
+    animation: gradientScroll 15s ease infinite;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 40px 20px;
+}
+
+@keyframes gradientScroll {
+    0% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+.about-card {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    padding: 30px;
+    border-radius: 20px;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.1);
+    max-width: 800px;
+    width: 100%;
+    text-align: center;
+    color: #333;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.about-title {
+    text-align: center;
+    color: var(--primary-color-end);
+    margin-bottom: 18px;
+    font-size: 2.3rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-shadow: 0 2px 8px rgba(118, 75, 162, 0.08);
+}
+
+.about-body {
+    font-size: 1.15rem;
+    line-height: 1.7;
+    color: var(--text-color-dark);
+    margin-bottom: 18px;
+}
+
+.about-creators-title {
+    color: var(--primary-color-start);
+    margin-bottom: 8px;
+    font-size: 1.35rem;
+    font-weight: 600;
+}
+
+.about-creators-list {
+    font-size: 1.08rem;
+    margin-bottom: 18px;
+    color: var(--text-color-medium);
+    padding-left: 0;
+    list-style: none;
+}
+
+.about-creators-list a {
+    color: var(--primary-color-end);
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.about-creators-list a:hover {
+    color: var(--primary-color-start);
+    text-decoration: underline;
+}
+
+.about-footer {
+    color: var(--text-color-medium);
+    font-size: 1rem;
+    text-align: center;
+    margin-top: 10px;
+}
+
+@media (max-width: 600px) {
+    .about-card {
+        padding: 16px;
+        gap: 12px;
+    }
+
+    .about-title {
+        font-size: 1.5rem;
+    }
+
+    .about-body {
+        font-size: 1rem;
+    }
+}
