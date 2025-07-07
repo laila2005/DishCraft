@@ -32,6 +32,11 @@
   letter-spacing: 1px;
 }
 
+.footer-logo img {
+  height: 60px;
+  width: auto;
+}
+
 .footer-links {
   display: flex;
   flex-wrap: wrap;

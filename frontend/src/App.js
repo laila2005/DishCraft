@@ -12,6 +12,8 @@ import ResetPasswordForm from './components/ResetPasswordForm';
 import Footer from './components/Footer';
 import UserProfile from './components/UserProfile';
 import Contact from './components/Contact';
+import About from './components/About';
+
 function App() {
   return (
     <AuthProvider>
@@ -27,7 +29,8 @@ function App() {
               <Route path="/reset-password/:token" element={<ResetPasswordForm />} />
               <Route path="/profile" element={<UserProfile />} />
               <Route path="/chef/:chefId" element={<ChefProfile />} />
-	      <Route path="/contact" element={<Contact />} />
+              <Route path="/contact" element={<Contact />} />
+              <Route path="/about" element={<About />} />
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </div>
