@@ -116,9 +116,9 @@ To get a copy of the project up and running on your local machine for developmen
 *   The benefits of an iterative development approach and persistent problem-solving in overcoming technical hurdles.
 
 ## Contributeurs
-Laila Mohamed <laila.mohamed.fikry@gmail.com>
-Yusuf Abu Egila <yusufabuegila@gmail.com>
-Madonna Medhat <Madonna.medhat@icloud.com>
+- Laila Mohamed <laila.mohamed.fikry@gmail.com>
+- Yusuf Abu Egila <yusufabuegila@gmail.com>
+- Madonna Medhat <Madonna.medhat@icloud.com>
 
 ## Contact
 For any inquiries, please open an issue in the GitHub repository.
