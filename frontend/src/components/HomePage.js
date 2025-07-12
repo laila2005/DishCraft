@@ -32,7 +32,7 @@ const HomePage = () => {
   // Removed recipe options - now using ingredient-based matching
 
   const getBackendUrl = useCallback(() => {
-    return process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
+    return process.env.REACT_APP_BACKEND_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:5000');
   }, []);
 
   const fetchIngredients = useCallback(async () => {
