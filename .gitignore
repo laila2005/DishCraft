@@ -1,7 +1,7 @@
 # Node.js backend
 backend/node_modules/
 backend/.env
-
+.env
 # React frontend
 frontend/node_modules/
 frontend/.env.local
