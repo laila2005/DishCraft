@@ -22,7 +22,7 @@ const ChefProfile = () => {
       try {
         setLoading(true);
         setError(null);
-        const res = await axios.get(`http://localhost:5000/api/chef/profile`, {
+        const res = await axios.get(`${process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'}/api/chef/profile`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setChefData(res.data);

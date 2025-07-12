@@ -39,7 +39,8 @@ connectDB(); // 🔌 Start DB connection
 // ✅ CORS Configuration
 const allowedOrigins = [
   'http://localhost:3000',
-  'https://dishcraft-frontend.onrender.com'
+  'https://dishcraft-frontend.onrender.com',
+  'https://dish-craft-a6mh.vercel.app'
 ];
 
 app.use(cors({
